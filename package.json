@@ -1,0 +1,21 @@
+{
+  "name": "chessarena",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run build -w @chessarena/shared && concurrently -n shared,api,web -c blue,green,magenta \"npm run dev -w @chessarena/shared\" \"npm run dev -w @chessarena/api\" \"npm run dev -w @chessarena/web\"",
+    "build": "npm run build -w @chessarena/shared && npm run build -w @chessarena/api && npm run build -w @chessarena/web",
+    "start": "npm run start -w @chessarena/api",
+    "typecheck": "npm run typecheck -w @chessarena/shared && npm run typecheck -w @chessarena/api && npm run typecheck -w @chessarena/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.2"
+  }
+}

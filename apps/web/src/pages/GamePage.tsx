@@ -1,0 +1,334 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import type { AiDifficulty } from "@chessarena/shared";
+import { ChessBoard } from "../components/ChessBoard";
+import { MoveList } from "../components/MoveList";
+import { PlayerBar } from "../components/PlayerBar";
+import { TopBar } from "../components/TopBar";
+import { levelFor } from "../lib/aiLevels";
+import { StockfishEngine } from "../lib/stockfishEngine";
+import { useAuthStore } from "../store/authStore";
+import { useGameStore } from "../store/gameStore";
+
+export function GamePage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+
+  const fen = useGameStore((s) => s.fen);
+  const moves = useGameStore((s) => s.moves);
+  const lastMove = useGameStore((s) => s.lastMove);
+  const selectedSquare = useGameStore((s) => s.selectedSquare);
+  const legalTargets = useGameStore((s) => s.legalTargets);
+  const pendingPromotion = useGameStore((s) => s.pendingPromotion);
+  const turn = useGameStore((s) => s.turn);
+  const inCheck = useGameStore((s) => s.inCheck);
+  const isCheckmate = useGameStore((s) => s.isCheckmate);
+  const isStalemate = useGameStore((s) => s.isStalemate);
+  const isDraw = useGameStore((s) => s.isDraw);
+  const checkSquare = useGameStore((s) => s.checkSquare);
+  const isGameOver = useGameStore((s) => s.isGameOver);
+  const status = useGameStore((s) => s.status);
+  const result = useGameStore((s) => s.result);
+  const aiDifficulty = useGameStore((s) => s.aiDifficulty);
+  const loadStatus = useGameStore((s) => s.loadStatus);
+  const loadError = useGameStore((s) => s.loadError);
+  const moving = useGameStore((s) => s.moving);
+  const aiThinking = useGameStore((s) => s.aiThinking);
+  const aiError = useGameStore((s) => s.aiError);
+  const loadGame = useGameStore((s) => s.loadGame);
+  const selectSquare = useGameStore((s) => s.selectSquare);
+  const attemptMove = useGameStore((s) => s.attemptMove);
+  const completePromotion = useGameStore((s) => s.completePromotion);
+  const cancelPromotion = useGameStore((s) => s.cancelPromotion);
+  const resign = useGameStore((s) => s.resign);
+  const createGame = useGameStore((s) => s.createGame);
+  const submitUci = useGameStore((s) => s.submitUci);
+  const setAiThinking = useGameStore((s) => s.setAiThinking);
+  const setAiError = useGameStore((s) => s.setAiError);
+
+  const [resigning, setResigning] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const engineRef = useRef<StockfishEngine | null>(null);
+  const searchGenRef = useRef(0);
+  const searchedFenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      navigate("/home", { replace: true });
+      return;
+    }
+    searchedFenRef.current = null;
+    void loadGame(id);
+  }, [id, loadGame, navigate]);
+
+  useEffect(() => {
+    const engine = new StockfishEngine();
+    engineRef.current = engine;
+    return () => {
+      searchGenRef.current += 1;
+      engine.terminate();
+      engineRef.current = null;
+      setAiThinking(false);
+    };
+  }, [setAiThinking]);
+
+  useEffect(() => {
+    if (
+      loadStatus !== "ready" ||
+      status !== "in_progress" ||
+      turn !== "b" ||
+      isGameOver ||
+      !fen ||
+      !aiDifficulty
+    ) {
+      return;
+    }
+
+    // One search per position — refresh re-triggers because id effect clears the ref.
+    if (searchedFenRef.current === fen) {
+      return;
+    }
+
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    searchedFenRef.current = fen;
+    const gen = ++searchGenRef.current;
+    const level = levelFor(aiDifficulty);
+    const positionFen = fen;
+
+    let cancelled = false;
+
+    async function runAi() {
+      setAiError(null);
+      setAiThinking(true);
+      try {
+        await engine!.init();
+        if (cancelled || gen !== searchGenRef.current) return;
+
+        const bestMove = await engine!.go({
+          fen: positionFen,
+          skill: level.skill,
+          depth: level.depth,
+          movetime: level.movetime,
+        });
+
+        if (cancelled || gen !== searchGenRef.current) return;
+
+        const ok = await submitUci(bestMove);
+        if (!ok && gen === searchGenRef.current) {
+          // Allow a fresh attempt after a failed submit (e.g. user refreshes).
+          // Do not auto-loop: leave searchedFenRef set until fen/id changes.
+        }
+      } catch (err) {
+        if (cancelled || gen !== searchGenRef.current) return;
+        const message =
+          err instanceof Error ? err.message : "AI failed to move";
+        if (message === "Stockfish search aborted") return;
+        setAiError(
+          message.includes("worker") || message.includes("Stockfish")
+            ? "AI engine failed to load. You can resign or start a new game."
+            : message,
+        );
+      } finally {
+        if (gen === searchGenRef.current) {
+          setAiThinking(false);
+        }
+      }
+    }
+
+    void runAi();
+
+    return () => {
+      cancelled = true;
+      searchGenRef.current += 1;
+      engine.stop();
+      setAiThinking(false);
+      // Allow retry after abort (React Strict Mode remount, navigate away, etc.).
+      if (searchedFenRef.current === positionFen) {
+        searchedFenRef.current = null;
+      }
+    };
+  }, [
+    loadStatus,
+    status,
+    turn,
+    isGameOver,
+    fen,
+    aiDifficulty,
+    submitUci,
+    setAiThinking,
+    setAiError,
+  ]);
+
+  const onMove = useCallback(
+    (from: string, to: string, promotion?: string) =>
+      attemptMove(from, to, promotion),
+    [attemptMove],
+  );
+
+  const statusText = (() => {
+    if (status === "completed" && result === "black" && !isCheckmate) {
+      return "You resigned — AI wins";
+    }
+    if (isCheckmate) {
+      return turn === "w" ? "Checkmate — Black wins" : "Checkmate — White wins";
+    }
+    if (isStalemate) return "Stalemate";
+    if (isDraw || result === "draw") return "Draw";
+    if (aiThinking) return "AI thinking…";
+    if (inCheck) return "Check";
+    if (turn === "b") return "Black to move";
+    return "White to move";
+  })();
+
+  async function onResign() {
+    setResigning(true);
+    searchGenRef.current += 1;
+    engineRef.current?.stop();
+    setAiThinking(false);
+    await resign();
+    setResigning(false);
+  }
+
+  async function onNewGame() {
+    setCreating(true);
+    searchGenRef.current += 1;
+    engineRef.current?.stop();
+    setAiThinking(false);
+    const difficulty = (aiDifficulty ?? 2) as AiDifficulty;
+    const view = await createGame(difficulty);
+    setCreating(false);
+    if (view) {
+      navigate(`/game/${view.id}`);
+    }
+  }
+
+  if (loadStatus === "loading" || loadStatus === "idle") {
+    return (
+      <main className="flex min-h-full items-center justify-center px-6">
+        <p className="text-muted">Loading game…</p>
+      </main>
+    );
+  }
+
+  if (loadStatus === "error") {
+    return (
+      <main className="flex min-h-full flex-col items-center justify-center gap-4 px-6">
+        <p className="text-text">{loadError ?? "Could not load game"}</p>
+        <Link className="text-accent hover:underline" to="/home">
+          Back to home
+        </Link>
+      </main>
+    );
+  }
+
+  const canMove =
+    status === "in_progress" &&
+    turn === "w" &&
+    !pendingPromotion &&
+    !moving &&
+    !aiThinking &&
+    !isGameOver;
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <TopBar />
+
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 lg:flex-row lg:items-start lg:justify-center lg:gap-8">
+        <section className="flex w-full flex-col items-center lg:w-auto">
+          <div className="w-full max-w-[min(70vh,100%)]">
+            <PlayerBar username="AI" sideLabel="B" />
+          </div>
+          <ChessBoard
+            fen={fen}
+            orientation="white"
+            lastMove={lastMove ?? undefined}
+            arePiecesDraggable={canMove}
+            onMove={onMove}
+            selectedSquare={selectedSquare}
+            legalTargets={legalTargets}
+            checkSquare={checkSquare}
+            turn={turn}
+            onSelectSquare={selectSquare}
+          />
+          <div className="w-full max-w-[min(70vh,100%)]">
+            <PlayerBar username={user?.username ?? "White"} sideLabel="W" />
+          </div>
+        </section>
+
+        <aside className="flex w-full flex-col gap-4 lg:w-64 lg:shrink-0 lg:self-stretch">
+          <p className="text-sm text-muted">{statusText}</p>
+          {moving && !aiThinking ? (
+            <p className="text-sm text-muted">Saving move…</p>
+          ) : null}
+          {aiThinking ? (
+            <p className="text-sm text-muted" aria-live="polite">
+              AI thinking…
+            </p>
+          ) : null}
+          {aiError ? (
+            <p className="text-sm text-red-400" role="alert">
+              {aiError}
+            </p>
+          ) : null}
+
+          {pendingPromotion ? (
+            <div className="space-y-2">
+              <p className="text-sm text-text">Promote to</p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["q", "Queen"],
+                    ["r", "Rook"],
+                    ["b", "Bishop"],
+                    ["n", "Knight"],
+                  ] as const
+                ).map(([code, label]) => (
+                  <button
+                    key={code}
+                    type="button"
+                    className="bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+                    onClick={() => void completePromotion(code)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-sm text-muted hover:text-text"
+                  onClick={cancelPromotion}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <MoveList moves={moves} />
+
+          <div className="mt-auto flex flex-wrap gap-3 pt-2">
+            <button
+              type="button"
+              className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+              disabled={status !== "in_progress" || resigning}
+              onClick={() => void onResign()}
+            >
+              {resigning ? "Resigning…" : "Resign"}
+            </button>
+            <button
+              type="button"
+              className="bg-accent px-3 py-1.5 text-sm font-medium text-bg disabled:opacity-60"
+              disabled={creating}
+              onClick={() => void onNewGame()}
+            >
+              {creating ? "Starting…" : "New game"}
+            </button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
