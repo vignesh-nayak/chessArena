@@ -4,11 +4,41 @@ Accumulated as ChessArena is built. Newest entries at the top within each week.
 
 ## Week 3
 
+### W3-F06 — Game history and replay
+
+**History lists every game the user played, as White or Black.** `GET /api/games/history` returns both seats, newest update first, with each player’s username and rating. Finished games open at `/game/:id/replay`. In-progress games stay on the live board. Any logged-in user can replay a game that is not in progress. The client steps through the stored SAN list from the start position. Move timestamps are not stored.
+
 ### W3-F05 — Leaderboard
 
-**The leaderboard is an authenticated read of `User.rating`.** `GET /api/leaderboard?limit=50` returns `{ items }` sorted by rating descending, then username ascending so ties stay stable. `limit` defaults to 50 and rejects values outside 1–100. Each row is `{ userId, username, rating, stats }`. The page refetches on mount, so a finished game shows up after navigation without a client cache.
+**The leaderboard is an authenticated read of `User.rating`.** `GET /api/leaderboard?limit=50` returns `{ items }` sorted by rating descending, then username ascending so ties stay stable. A missing rating sorts and displays as 1200, the same default new users receive. `limit` defaults to 50 and rejects values outside 1–100. Each row is `{ userId, username, rating, stats }`. The page refetches on mount, so a finished game shows up after navigation without a client cache. How that number changes is W3-F01.
 
-**Ratings move only on completed PvP games.** `completeGame` applies the standard ELO formula for both humans and appends `ratingHistory`. K is 32 until that history has 30 entries, then 16. AI results still change win/loss/draw stats only. New users start at 1200.
+### W3-F04 — Spectator mode
+
+**Spectators share the game room and are not stored.** A logged-in socket sends `spectate:join` for an in-progress PvP game it is not playing. The socket’s `role` becomes `spectator` for that game id, and it joins the same room as the players. The join emits `spectate:stateUpdate` plus the existing `game:stateUpdate` and `game:clockUpdate` to that socket only. Later moves, clocks, and `game:ended` are the room broadcasts. `spectate:leave`, navigation away, or disconnect drops the socket from the room. A player `game:join` clears the spectator role so the same socket can play afterward. Move, resign, draw, and chat from that role are rejected. `GET /api/games/:id` is readable for any logged-in user when the game is PvP; AI games stay participant-only. Finished games are shown from that read and are not joined.
+
+**Ten thousand spectators on one Node process is out of scope.** Fan-out and CPU would need a Redis adapter, a separate broadcast tier, or an SSE CDN. None of that is built.
+
+### W3-F03 — Game clocks and timeout
+
+**PvP clocks are server-owned.** Each timed game keeps `turnStartedAt` in memory. The live time is `storedMs - (now - turnStartedAt)` for the side to move; the other side stays put. A 250ms tick emits `game:clockUpdate` and does not write Mongo. A move subtracts the elapsed time and then adds 5 seconds. If the clock is already at 0, the move is ignored and that side loses. Disconnect does not pause the clock. AI games and older PvP games with no `timeControl` stay untimed.
+
+**A flag is a normal completed loss.** The server emits `game:timeout` and `game:ended` with reason `timeout`, and `completeGame` updates ratings. Client clocks only display the server values, counting the active side locally between updates and snapping back on the next packet. After a process restart, in-progress timed games resume from the saved remaining with a new `turnStartedAt`, so downtime is not deducted.
+
+### W3-F02 — Matchmaking queue
+
+**Find Match is an in-memory queue on the API process.** A player joins with `matchmaking:join` and leaves with `matchmaking:leave` or a disconnect of that socket. The only supported control is 10+5 (`{ initial: 600, increment: 5 }` seconds). Rating is read from the user document, and a missing rating counts as 1200.
+
+**The longest-waiting player is matched first, using only that player's window.** The window is `min(400, 100 + 50 * floor(waitSeconds / 10))`. They take the oldest opponent inside it, so a 20-second wait at 1400 can pair with a 1200 who just joined. A fixed ±200 band was rejected because it either waits too long for close matches or never reaches a fair wider gap. A mutual-window rule was rejected so a long search can finish instead of waiting for the newer player to widen too. Pairing is checked every second. Both players are reserved before the game document is created, and accepting a direct challenge reserves them too, so one person cannot start two games. Pending challenges for the matched players are cancelled. Direct challenges otherwise stay available while searching.
+
+**Matchmade games store clock fields and do not run them yet.** `timeControl`, `whiteTimeRemaining`, and `blackTimeRemaining` (600000 ms each) are written on the match document. Countdown and timeout belong to W3-F03. Challenge and AI games still omit those fields.
+
+### W3-F01 — ELO rating system
+
+**Ratings are computed on the server and only displayed by the client.** The pure functions live in `apps/api/src/lib/elo.ts`. `completeGame` applies them when a PvP game completes and appends `ratingHistory` as `{ rating, date, gameId }`. K comes from the history length before that append: 32 while it is under 30, then 16. The result is `Math.round`, then clamped at 0. An even match that ends in a win moves by K/2, so 1200 vs 1200 with K=32 becomes 1216 and 1184. New users start at 1200.
+
+**AI games and abandoned games do not change rating.** AI completion still increments win/loss/draw stats. If one player document is missing, the handler logs, increments stats for whoever exists, and skips the rating math.
+
+**The signed-in rating is display state, not part of the login summary.** `GET /api/users/me`, each player on a game payload (`rating: null` on the AI seat), and `lobby:onlineUsers` carry the number. The top bar, player bars, and lobby list render it. After a PvP `game:ended`, the client refetches that game and `/me` so the bars and top bar update without a full reload. A lobby tab that never rejoins keeps the rating from join time. The optional post-game delta toast is deferred. Unit tests use Node’s test runner for these functions; the Jest suite stays with W4-F03.
 
 ## Week 2
 

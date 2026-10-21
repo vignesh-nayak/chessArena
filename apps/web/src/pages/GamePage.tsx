@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { AiDifficulty } from "@chessarena/shared";
 import { ChessBoard } from "../components/ChessBoard";
 import { GameChatPanel } from "../components/GameChatPanel";
@@ -13,8 +13,40 @@ import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
 import { useRealtimeStore } from "../store/realtimeStore";
 
+function ratingLabel(rating: number | null): string {
+  return rating == null ? "—" : String(rating);
+}
+
+function formatClock(ms: number): string {
+  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function useLiveClock(
+  ms: number | null,
+  active: boolean,
+  updatedAt: number | null,
+  running: boolean,
+): number | null {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!running || !active || updatedAt == null || ms == null) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(timer);
+  }, [running, active, updatedAt, ms]);
+
+  if (ms == null) return null;
+  if (!running || !active || updatedAt == null) return ms;
+  return Math.max(0, ms - (now - updatedAt));
+}
+
 export function GamePage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 
@@ -38,6 +70,13 @@ export function GamePage() {
   const myColor = useGameStore((s) => s.myColor);
   const whiteName = useGameStore((s) => s.whiteName);
   const blackName = useGameStore((s) => s.blackName);
+  const whiteId = useGameStore((s) => s.whiteId);
+  const blackId = useGameStore((s) => s.blackId);
+  const whiteRating = useGameStore((s) => s.whiteRating);
+  const blackRating = useGameStore((s) => s.blackRating);
+  const whiteTime = useGameStore((s) => s.whiteTime);
+  const blackTime = useGameStore((s) => s.blackTime);
+  const clockUpdatedAt = useGameStore((s) => s.clockUpdatedAt);
   const loadStatus = useGameStore((s) => s.loadStatus);
   const loadError = useGameStore((s) => s.loadError);
   const moving = useGameStore((s) => s.moving);
@@ -64,7 +103,35 @@ export function GamePage() {
   const realtimeStatus = useRealtimeStore((s) => s.status);
   const realtimeError = useRealtimeStore((s) => s.lastErrorMessage);
 
-  useGameRealtimeSync(id);
+  const wantsSpectate = searchParams.get("spectate") === "1";
+  const isParticipant = Boolean(
+    user?.id && (user.id === whiteId || user.id === blackId),
+  );
+  const syncMode =
+    !id || (wantsSpectate && loadStatus !== "ready")
+      ? "wait"
+      : wantsSpectate && isParticipant
+        ? "play"
+        : wantsSpectate && status === "in_progress"
+          ? "spectate"
+          : wantsSpectate
+            ? "readonly"
+            : "play";
+  const watching = syncMode === "spectate" || syncMode === "readonly";
+
+  useGameRealtimeSync(id, syncMode);
+  const whiteShown = useLiveClock(
+    whiteTime,
+    turn === "w",
+    clockUpdatedAt,
+    status === "in_progress",
+  );
+  const blackShown = useLiveClock(
+    blackTime,
+    turn === "b",
+    clockUpdatedAt,
+    status === "in_progress",
+  );
 
   const engineRef = useRef<StockfishEngine | null>(null);
   const searchGenRef = useRef(0);
@@ -78,6 +145,11 @@ export function GamePage() {
     searchedFenRef.current = null;
     void loadGame(id);
   }, [id, loadGame, navigate]);
+
+  useEffect(() => {
+    if (!id || loadStatus !== "ready" || !wantsSpectate || !isParticipant) return;
+    navigate(`/game/${id}`, { replace: true });
+  }, [id, isParticipant, loadStatus, navigate, wantsSpectate]);
 
   useEffect(() => {
     const engine = new StockfishEngine();
@@ -197,6 +269,11 @@ export function GamePage() {
         : "Black resigned — White wins";
     }
     if (endReason === "agreement") return "Draw by agreement";
+    if (endReason === "timeout") {
+      return result === "black"
+        ? "White ran out of time — Black wins"
+        : "Black ran out of time — White wins";
+    }
     if (
       gameType !== "pvp" &&
       status === "completed" &&
@@ -213,6 +290,7 @@ export function GamePage() {
     if (endReason === "threefold_repetition") return "Draw — threefold repetition";
     if (endReason === "fifty_move") return "Draw — fifty-move rule";
     if (isDraw || result === "draw" || endReason === "draw") return "Draw";
+    if (syncMode === "spectate") return "Spectating";
     if (aiThinking) return "AI thinking…";
     if (inCheck) return "Check";
     if (turn === "b") return "Black to move";
@@ -263,6 +341,7 @@ export function GamePage() {
 
   const realtimeReady = gameType !== "pvp" || realtimeStatus === "connected";
   const canMove =
+    !watching &&
     realtimeReady &&
     status === "in_progress" &&
     turn === myColor &&
@@ -271,8 +350,18 @@ export function GamePage() {
     !aiThinking &&
     !isGameOver;
 
-  const opponentName = myColor === "b" ? whiteName : blackName;
-  const selfName = myColor === "b" ? blackName : (user?.username ?? whiteName);
+  const opponentName = watching
+    ? blackName
+    : myColor === "b"
+      ? whiteName
+      : blackName;
+  const selfName = watching
+    ? whiteName
+    : myColor === "b"
+      ? blackName
+      : (user?.username ?? whiteName);
+  const opponentClock = myColor === "b" ? whiteShown : blackShown;
+  const selfClock = myColor === "b" ? blackShown : whiteShown;
   const incomingDraw =
     gameType === "pvp" &&
     status === "in_progress" &&
@@ -289,7 +378,12 @@ export function GamePage() {
           <div className="w-full max-w-[min(70vh,100%)]">
             <PlayerBar
               username={opponentName}
+              ratingLabel={ratingLabel(
+                myColor === "b" ? whiteRating : blackRating,
+              )}
               sideLabel={myColor === "b" ? "W" : "B"}
+              clockLabel={opponentClock == null ? null : formatClock(opponentClock)}
+              clockLow={opponentClock != null && opponentClock < 20_000}
             />
           </div>
           <ChessBoard
@@ -302,12 +396,17 @@ export function GamePage() {
             legalTargets={legalTargets}
             checkSquare={checkSquare}
             turn={turn}
-            onSelectSquare={selectSquare}
+            onSelectSquare={watching ? undefined : selectSquare}
           />
           <div className="w-full max-w-[min(70vh,100%)]">
             <PlayerBar
               username={selfName}
+              ratingLabel={ratingLabel(
+                myColor === "b" ? blackRating : whiteRating,
+              )}
               sideLabel={myColor === "b" ? "B" : "W"}
+              clockLabel={selfClock == null ? null : formatClock(selfClock)}
+              clockLow={selfClock != null && selfClock < 20_000}
             />
           </div>
         </section>
@@ -333,7 +432,7 @@ export function GamePage() {
             </p>
           ) : null}
 
-          {pendingPromotion ? (
+          {pendingPromotion && !watching ? (
             <div className="space-y-2">
               <p className="text-sm text-text">Promote to</p>
               <div className="flex flex-wrap gap-2">
@@ -367,11 +466,11 @@ export function GamePage() {
 
           <MoveList moves={moves} />
 
-          {gameType === "pvp" && id ? (
+          {gameType === "pvp" && id && !watching ? (
             <GameChatPanel gameId={id} canSend={realtimeReady} />
           ) : null}
 
-          {incomingDraw ? (
+          {incomingDraw && !watching ? (
             <div className="space-y-2 border border-muted/40 px-3 py-3">
               <p className="text-sm text-text">{opponentName} offered a draw</p>
               <div className="flex gap-2">
@@ -393,6 +492,7 @@ export function GamePage() {
             </div>
           ) : null}
 
+          {watching ? null : (
           <div className="mt-auto flex flex-wrap gap-3 pt-2">
             <button
               type="button"
@@ -429,6 +529,7 @@ export function GamePage() {
               </button>
             )}
           </div>
+          )}
         </aside>
       </div>
     </div>

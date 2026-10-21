@@ -4,7 +4,7 @@ import {
 } from "@chessarena/shared";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ApiRequestError, apiFetch } from "../lib/api";
+import { ApiRequestError, apiFetch, refreshViewerRating } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 
 export function SignupPage() {
@@ -56,6 +56,11 @@ export function SignupPage() {
         retryOnUnauthorized: false,
       });
       setSession(session.accessToken, session.user);
+      try {
+        await refreshViewerRating();
+      } catch {
+        // Session is valid; the top bar fills in on the next profile read.
+      }
       navigate("/home", { replace: true });
     } catch (err) {
       if (err instanceof ApiRequestError) {

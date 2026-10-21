@@ -75,17 +75,23 @@ async function loadParticipantGame(
   return { ok: true, game };
 }
 
+const aiPlayer = { id: "AI", username: "AI", rating: null };
+
 async function playerFor(userId: string) {
   const user = await User.findById(userId).lean();
   if (!user) return null;
-  return { id: user._id.toString(), username: user.username };
+  return {
+    id: user._id.toString(),
+    username: user.username,
+    rating: user.rating ?? 1200,
+  };
 }
 
 async function playersFor(game: GameDocument) {
   const white = await playerFor(playerId(game.whitePlayer));
   if (!white) return null;
   if (game.gameType === "ai" || game.blackPlayer === "AI") {
-    return { white, black: { id: "AI", username: "AI" } };
+    return { white, black: aiPlayer };
   }
   const black = await playerFor(playerId(game.blackPlayer));
   if (!black) return null;
@@ -123,37 +129,123 @@ gamesRouter.post("/", asyncHandler(async (req, res) => {
   });
 
   res.status(201).json(
-    toGameView(game, { white, black: { id: "AI", username: "AI" } }),
+    toGameView(game, { white, black: aiPlayer }),
   );
 }));
 
 gamesRouter.get("/history", asyncHandler(async (req, res) => {
   const { userId } = req as AuthenticatedRequest;
-  const games = await Game.find({ whitePlayer: userId }).sort({
-    createdAt: -1,
-  });
+  const games = await Game.find({
+    $or: [{ whitePlayer: userId }, { blackPlayer: userId }],
+  }).sort({ updatedAt: -1 });
+
+  const items = [];
+  for (const game of games) {
+    const players = await playersFor(game);
+    if (!players) continue;
+    items.push(toGameSummary(game, players));
+  }
 
   res.status(200).json({
-    items: games.map((g) => toGameSummary(g)),
-    total: games.length,
+    items,
+    total: items.length,
   });
 }));
 
-gamesRouter.get("/:id", asyncHandler(async (req, res) => {
-  const { userId } = req as unknown as AuthenticatedRequest;
-  const loaded = await loadParticipantGame(req.params.id ?? "", userId);
-  if (!loaded.ok) {
-    sendError(res, loaded.status, loaded.code, loaded.message);
+gamesRouter.get("/live", asyncHandler(async (_req, res) => {
+  const games = await Game.find({
+    gameType: "pvp",
+    status: "in_progress",
+  })
+    .sort({ updatedAt: -1 })
+    .limit(20);
+
+  const items = [];
+  for (const game of games) {
+    const players = await playersFor(game);
+    if (!players) continue;
+    items.push({
+      id: game._id.toString(),
+      white: players.white,
+      black: players.black,
+      moveCount: game.moves.length,
+    });
+  }
+
+  res.status(200).json({ items });
+}));
+
+gamesRouter.get("/:id/replay", asyncHandler(async (req, res) => {
+  const gameId = req.params.id ?? "";
+  if (!mongoose.isValidObjectId(gameId)) {
+    sendError(res, 404, "NOT_FOUND", "Game not found");
     return;
   }
 
-  const players = await playersFor(loaded.game);
+  const game = await Game.findById(gameId);
+  if (!game) {
+    sendError(res, 404, "NOT_FOUND", "Game not found");
+    return;
+  }
+  if (game.status === "in_progress") {
+    sendError(res, 409, "CONFLICT", "This game is still in progress");
+    return;
+  }
+
+  if (!stateFromSans(game.moves).ok) {
+    sendError(res, 500, "INTERNAL", "Stored game moves are invalid");
+    return;
+  }
+
+  const players = await playersFor(game);
   if (!players) {
     sendError(res, 401, "UNAUTHORIZED", "User not found");
     return;
   }
 
-  res.status(200).json(toGameView(loaded.game, players));
+  res.status(200).json({
+    id: game._id.toString(),
+    whitePlayer: players.white,
+    blackPlayer: players.black,
+    moves: game.moves,
+    result: game.result,
+    status: game.status,
+    gameType: game.gameType,
+    aiDifficulty: game.gameType === "ai" ? game.aiDifficulty : null,
+    createdAt: game.createdAt.toISOString(),
+  });
+}));
+
+gamesRouter.get("/:id", asyncHandler(async (req, res) => {
+  const { userId } = req as unknown as AuthenticatedRequest;
+  const gameId = req.params.id ?? "";
+  if (!mongoose.isValidObjectId(gameId)) {
+    sendError(res, 404, "NOT_FOUND", "Game not found");
+    return;
+  }
+
+  const game = await Game.findById(gameId);
+  if (!game) {
+    sendError(res, 404, "NOT_FOUND", "Game not found");
+    return;
+  }
+
+  if (game.gameType !== "pvp") {
+    const whiteId = playerId(game.whitePlayer);
+    const blackId = playerId(game.blackPlayer);
+    if (whiteId !== userId && blackId !== userId) {
+      sendError(res, 403, "FORBIDDEN", "You are not a participant in this game");
+      return;
+    }
+  }
+
+  const players = await playersFor(game);
+  if (!players) {
+    sendError(res, 401, "UNAUTHORIZED", "User not found");
+    return;
+  }
+
+  res.status(200).json(toGameView(game, players));
 }));
 
 gamesRouter.patch("/:id/move", asyncHandler(async (req, res) => {

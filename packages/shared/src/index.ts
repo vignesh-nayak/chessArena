@@ -157,6 +157,7 @@ export type GameResult = z.infer<typeof GameResultSchema>;
 export const GamePlayerSchema = z.object({
   id: z.string(),
   username: z.string(),
+  rating: z.number().int().nullable(),
 });
 
 export type GamePlayer = z.infer<typeof GamePlayerSchema>;
@@ -179,6 +180,8 @@ const gameViewFields = {
   lastMove: LastMoveSchema.nullable(),
   white: GamePlayerSchema,
   black: GamePlayerSchema,
+  whiteTime: z.number().int().nullable(),
+  blackTime: z.number().int().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 };
@@ -203,6 +206,8 @@ const gameSummaryFields = {
   status: GameStatusSchema,
   result: GameResultSchema,
   moveCount: z.number().int().nonnegative(),
+  white: GamePlayerSchema,
+  black: GamePlayerSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 };
@@ -229,6 +234,35 @@ export const GameHistoryResponseSchema = z.object({
 
 export type GameHistoryResponse = z.infer<typeof GameHistoryResponseSchema>;
 
+export const GameReplaySchema = z.object({
+  id: z.string(),
+  whitePlayer: GamePlayerSchema,
+  blackPlayer: GamePlayerSchema,
+  moves: z.array(z.string()),
+  result: GameResultSchema,
+  status: GameStatusSchema,
+  gameType: z.enum(["ai", "pvp"]),
+  aiDifficulty: AiDifficultySchema.nullable(),
+  createdAt: z.string(),
+});
+
+export type GameReplay = z.infer<typeof GameReplaySchema>;
+
+export const LiveGameSchema = z.object({
+  id: z.string(),
+  white: GamePlayerSchema,
+  black: GamePlayerSchema,
+  moveCount: z.number().int().nonnegative(),
+});
+
+export type LiveGame = z.infer<typeof LiveGameSchema>;
+
+export const LiveGamesResponseSchema = z.object({
+  items: z.array(LiveGameSchema),
+});
+
+export type LiveGamesResponse = z.infer<typeof LiveGamesResponseSchema>;
+
 export {
   ChallengeActionSchema,
   ChallengeDeclinedSchema,
@@ -236,18 +270,24 @@ export {
   ChallengeSendSchema,
   ChatMessageSchema,
   ChatNewMessageSchema,
+  GameClockUpdateSchema,
   GameEndReasonSchema,
   GameEndedSchema,
+  GameTimeoutSchema,
   GameJoinSchema,
   GameLastMoveSchema,
   GameMoveSchema,
+  MatchmakingJoinSchema,
+  MatchmakingMatchedSchema,
   GameOfferDrawSchema,
   GameResignSchema,
   GameRespondDrawSchema,
   GameStartedSchema,
   GameStateUpdateSchema,
+  SpectateStateUpdateSchema,
   LobbyOnlineUserSchema,
   LobbyOnlineUsersSchema,
+  TimeControlSchema,
   SocketErrorPayloadSchema,
   SocketHandshakeAuthSchema,
   type ChallengeAction,
@@ -257,21 +297,27 @@ export {
   type ChatMessage,
   type ChatNewMessage,
   type ClientToServerEvents,
+  type GameClockUpdate,
   type GameEndReason,
   type GameEnded,
+  type GameTimeout,
   type GameJoin,
   type GameLastMove,
   type GameMove,
+  type MatchmakingJoin,
+  type MatchmakingMatched,
   type GameOfferDraw,
   type GameResign,
   type GameRespondDraw,
   type GameStarted,
   type GameStateUpdate,
+  type SpectateStateUpdate,
   type LobbyOnlineUser,
   type LobbyOnlineUsers,
   type ServerToClientEvents,
   type SocketErrorPayload,
   type SocketHandshakeAuth,
+  type TimeControl,
 } from "./realtime.js";
 
 export {

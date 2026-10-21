@@ -14,13 +14,23 @@ import {
   type GameStateUpdate,
 } from "@chessarena/shared";
 import mongoose from "mongoose";
+import { clockFromControl, displayedClock, settleMove } from "../../lib/clock.js";
 import { completeGame } from "../../lib/completeGame.js";
 import { Game, type GameDocument } from "../../models/Game.js";
 import { User } from "../../models/User.js";
+import {
+  armClock,
+  clockStartedAt,
+  disarmClock,
+  listArmedGameIds,
+  markTurnStarted,
+} from "../clocks.js";
 import { emitSocketError } from "../errors.js";
 import type { AppServer, AppSocket } from "../types.js";
 
 const gameQueues = new Map<string, Promise<void>>();
+const CLOCK_TICK_MS = 250;
+let clockTicker: ReturnType<typeof setInterval> | null = null;
 const chatTimestamps = new Map<string, number[]>();
 const CHAT_LIMIT = 5;
 const CHAT_WINDOW_MS = 10_000;
@@ -64,6 +74,57 @@ function sideFor(game: GameDocument, userId: string): "w" | "b" | null {
   if (playerId(game.whitePlayer) === userId) return "w";
   if (playerId(game.blackPlayer) === userId) return "b";
   return null;
+}
+
+function isSpectating(socket: AppSocket, gameId: string): boolean {
+  return (
+    socket.data.role === "spectator" && socket.data.spectatingGameId === gameId
+  );
+}
+
+function rejectIfSpectator(socket: AppSocket, gameId: string): boolean {
+  if (!isSpectating(socket, gameId)) return false;
+  emitSocketError(socket, "Spectators cannot play");
+  return true;
+}
+
+async function leaveSpectatedRoom(socket: AppSocket): Promise<void> {
+  const gameId = socket.data.spectatingGameId;
+  socket.data.role = "player";
+  socket.data.spectatingGameId = null;
+  if (!gameId) return;
+  if (mongoose.isValidObjectId(gameId)) {
+    const game = await Game.findById(gameId).select("socketRoomId");
+    if (game) {
+      await socket.leave(roomIdFor(game));
+      return;
+    }
+  }
+  await socket.leave(`game:${gameId}`);
+}
+
+function clockSnapshot(
+  game: GameDocument,
+  turn: "w" | "b",
+): { whiteTime: number; blackTime: number } | null {
+  const stored = clockFromControl(
+    game.timeControl,
+    game.whiteTimeRemaining,
+    game.blackTimeRemaining,
+  );
+  if (!stored) return null;
+  if (game.status !== "in_progress") {
+    return {
+      whiteTime: Math.max(0, Math.floor(stored.whiteMs)),
+      blackTime: Math.max(0, Math.floor(stored.blackMs)),
+    };
+  }
+  return displayedClock(
+    stored,
+    turn,
+    clockStartedAt(game._id.toString()),
+    Date.now(),
+  );
 }
 
 function roomIdFor(game: GameDocument): string {
@@ -144,6 +205,111 @@ async function loadPvpGame(
   return { ok: true, game };
 }
 
+function emitClock(
+  io: AppServer,
+  game: GameDocument,
+  turn: "w" | "b",
+  now = Date.now(),
+): void {
+  const stored = clockFromControl(
+    game.timeControl,
+    game.whiteTimeRemaining,
+    game.blackTimeRemaining,
+  );
+  if (!stored) return;
+  const times =
+    game.status === "in_progress"
+      ? displayedClock(
+          stored,
+          turn,
+          clockStartedAt(game._id.toString()),
+          now,
+        )
+      : {
+          whiteTime: Math.max(0, Math.floor(stored.whiteMs)),
+          blackTime: Math.max(0, Math.floor(stored.blackMs)),
+        };
+  io.to(roomIdFor(game)).emit("game:clockUpdate", {
+    gameId: game._id.toString(),
+    whiteTime: times.whiteTime,
+    blackTime: times.blackTime,
+  });
+}
+
+async function finishOnTime(
+  io: AppServer,
+  game: GameDocument,
+  active: "w" | "b",
+): Promise<void> {
+  const gameId = game._id.toString();
+  if (game.status !== "in_progress") {
+    disarmClock(gameId);
+    return;
+  }
+  if (active === "w") game.whiteTimeRemaining = 0;
+  else game.blackTimeRemaining = 0;
+  const winner = active === "w" ? "black" : "white";
+  await completeGame(game, winner);
+  disarmClock(gameId);
+  const roomId = roomIdFor(game);
+  io.to(roomId).emit("game:clockUpdate", {
+    gameId,
+    whiteTime: Math.max(0, Math.floor(game.whiteTimeRemaining ?? 0)),
+    blackTime: Math.max(0, Math.floor(game.blackTimeRemaining ?? 0)),
+  });
+  io.to(roomId).emit("game:timeout", { gameId, winner });
+  broadcastState(io, game, { gameId, result: winner, reason: "timeout" });
+}
+
+async function tickClock(io: AppServer, gameId: string): Promise<void> {
+  if (!mongoose.isValidObjectId(gameId)) {
+    disarmClock(gameId);
+    return;
+  }
+  const game = await Game.findById(gameId);
+  if (!game || game.status !== "in_progress" || game.gameType !== "pvp") {
+    disarmClock(gameId);
+    return;
+  }
+  const stored = clockFromControl(
+    game.timeControl,
+    game.whiteTimeRemaining,
+    game.blackTimeRemaining,
+  );
+  const started = clockStartedAt(gameId);
+  if (!stored || started == null) {
+    disarmClock(gameId);
+    return;
+  }
+  const rebuilt = stateFromSans(game.moves);
+  if (!rebuilt.ok) return;
+  const active = rebuilt.flags.turn;
+  const tickNow = Date.now();
+  const live = displayedClock(stored, active, started, tickNow);
+  const activeMs = active === "w" ? live.whiteTime : live.blackTime;
+  const elapsed = tickNow - started;
+  const raw = active === "w" ? stored.whiteMs - elapsed : stored.blackMs - elapsed;
+  if (raw <= 0 || activeMs <= 0) {
+    await finishOnTime(io, game, active);
+    return;
+  }
+  io.to(roomIdFor(game)).emit("game:clockUpdate", {
+    gameId,
+    whiteTime: live.whiteTime,
+    blackTime: live.blackTime,
+  });
+}
+
+function ensureClockTicker(io: AppServer): void {
+  if (clockTicker) return;
+  clockTicker = setInterval(() => {
+    for (const gameId of listArmedGameIds()) {
+      enqueueGame(gameId, () => tickClock(io, gameId));
+    }
+  }, CLOCK_TICK_MS);
+  clockTicker.unref();
+}
+
 function broadcastState(
   io: AppServer,
   game: GameDocument,
@@ -173,6 +339,7 @@ async function handleJoin(socket: AppSocket, payload: unknown): Promise<void> {
   }
 
   const game = loaded.game;
+  await leaveSpectatedRoom(socket);
   const roomId = roomIdFor(game);
   if (game.socketRoomId !== roomId) {
     game.socketRoomId = roomId;
@@ -185,7 +352,36 @@ async function handleJoin(socket: AppSocket, payload: unknown): Promise<void> {
     emitSocketError(socket, "Stored game moves are invalid");
     return;
   }
+  if (game.status === "in_progress" && game.timeControl) {
+    armClock(game._id.toString());
+  }
   socket.emit("game:stateUpdate", snapshot);
+  if (game.timeControl) {
+    const stored = clockFromControl(
+      game.timeControl,
+      game.whiteTimeRemaining,
+      game.blackTimeRemaining,
+    );
+    if (stored) {
+      const times =
+        game.status === "in_progress"
+          ? displayedClock(
+              stored,
+              snapshot.turn,
+              clockStartedAt(game._id.toString()),
+              Date.now(),
+            )
+          : {
+              whiteTime: Math.max(0, Math.floor(stored.whiteMs)),
+              blackTime: Math.max(0, Math.floor(stored.blackMs)),
+            };
+      socket.emit("game:clockUpdate", {
+        gameId: game._id.toString(),
+        whiteTime: times.whiteTime,
+        blackTime: times.blackTime,
+      });
+    }
+  }
 }
 
 async function applyMove(
@@ -218,6 +414,26 @@ async function applyMove(
     return;
   }
 
+  const now = Date.now();
+  const clock = clockFromControl(
+    game.timeControl,
+    game.whiteTimeRemaining,
+    game.blackTimeRemaining,
+  );
+  let settledWhite: number | null = null;
+  let settledBlack: number | null = null;
+  if (clock) {
+    const started = clockStartedAt(game._id.toString());
+    const elapsed = started == null ? 0 : now - started;
+    const settled = settleMove(clock, rebuilt.flags.turn, elapsed);
+    if (settled.flagged) {
+      await finishOnTime(io, game, rebuilt.flags.turn);
+      return;
+    }
+    settledWhite = settled.whiteMs;
+    settledBlack = settled.blackMs;
+  }
+
   const moveResult = tryMove(rebuilt.state, move);
   if (!moveResult.ok) {
     emitSocketError(
@@ -232,6 +448,10 @@ async function applyMove(
   game.moves = [...game.moves, moveResult.san];
   game.fen = moveResult.fen;
   game.drawOfferedBy = null;
+  if (settledWhite != null && settledBlack != null) {
+    game.whiteTimeRemaining = settledWhite;
+    game.blackTimeRemaining = settledBlack;
+  }
   const roomId = roomIdFor(game);
   game.socketRoomId = roomId;
 
@@ -254,6 +474,13 @@ async function applyMove(
     await game.save();
   }
 
+  if (ended || game.status !== "in_progress") {
+    disarmClock(gameId);
+  } else if (clock) {
+    markTurnStarted(gameId, now);
+  }
+  if (clock) emitClock(io, game, moveResult.flags.turn, now);
+
   if (!broadcastState(io, game, ended)) {
     emitSocketError(socket, "Stored game moves are invalid");
   }
@@ -267,6 +494,7 @@ function handleMove(io: AppServer, socket: AppSocket, payload: unknown): void {
   }
 
   const { gameId, move } = parsed.data;
+  if (rejectIfSpectator(socket, gameId)) return;
   enqueueGame(gameId, () => applyMove(io, socket, gameId, move));
 }
 
@@ -296,6 +524,7 @@ async function applyResign(
   const result: Exclude<GameResult, null> = side === "w" ? "black" : "white";
   game.drawOfferedBy = null;
   game.socketRoomId = roomIdFor(game);
+  disarmClock(game._id.toString());
   await game.save();
   await completeGame(game, result);
   const ended: GameEnded = {
@@ -382,6 +611,7 @@ async function applyRespondDraw(
   }
 
   game.drawOfferedBy = null;
+  disarmClock(game._id.toString());
   await game.save();
   await completeGame(game, "draw");
   const ended: GameEnded = {
@@ -400,6 +630,7 @@ function handleResign(io: AppServer, socket: AppSocket, payload: unknown): void 
     emitSocketError(socket, "Invalid game");
     return;
   }
+  if (rejectIfSpectator(socket, parsed.data.gameId)) return;
   enqueueGame(parsed.data.gameId, () =>
     applyResign(io, socket, parsed.data.gameId),
   );
@@ -415,6 +646,7 @@ function handleOfferDraw(
     emitSocketError(socket, "Invalid game");
     return;
   }
+  if (rejectIfSpectator(socket, parsed.data.gameId)) return;
   enqueueGame(parsed.data.gameId, () =>
     applyOfferDraw(io, socket, parsed.data.gameId),
   );
@@ -449,6 +681,7 @@ async function handleChatMessage(
     emitSocketError(socket, "Invalid message");
     return;
   }
+  if (rejectIfSpectator(socket, parsed.data.gameId)) return;
 
   const loaded = await loadPvpGame(parsed.data.gameId, socket.data.userId);
   if (!loaded.ok) {
@@ -489,12 +722,88 @@ function handleRespondDraw(
     emitSocketError(socket, "Invalid draw response");
     return;
   }
+  if (rejectIfSpectator(socket, parsed.data.gameId)) return;
   enqueueGame(parsed.data.gameId, () =>
     applyRespondDraw(io, socket, parsed.data.gameId, parsed.data.accept),
   );
 }
 
+async function handleSpectateJoin(
+  socket: AppSocket,
+  payload: unknown,
+): Promise<void> {
+  const parsed = GameJoinSchema.safeParse(payload);
+  if (!parsed.success) {
+    emitSocketError(socket, "Invalid game");
+    return;
+  }
+
+  const { gameId } = parsed.data;
+  if (!mongoose.isValidObjectId(gameId)) {
+    emitSocketError(socket, "Game not found");
+    return;
+  }
+
+  const game = await Game.findById(gameId);
+  if (!game || game.gameType !== "pvp") {
+    emitSocketError(socket, "Game not found");
+    return;
+  }
+  if (sideFor(game, socket.data.userId)) {
+    emitSocketError(socket, "Join as a player");
+    return;
+  }
+  if (game.status !== "in_progress") {
+    emitSocketError(socket, "This game has ended");
+    return;
+  }
+
+  const snapshot = toStateUpdate(game);
+  if (!snapshot) {
+    emitSocketError(socket, "Stored game moves are invalid");
+    return;
+  }
+
+  await leaveSpectatedRoom(socket);
+  const roomId = roomIdFor(game);
+  socket.data.role = "spectator";
+  socket.data.spectatingGameId = game._id.toString();
+  await socket.join(roomId);
+  if (game.timeControl) armClock(game._id.toString());
+
+  const times = clockSnapshot(game, snapshot.turn);
+  socket.emit("spectate:stateUpdate", {
+    gameId: game._id.toString(),
+    fen: snapshot.fen,
+    lastMove: snapshot.lastMove,
+    whiteTime: times?.whiteTime ?? null,
+    blackTime: times?.blackTime ?? null,
+  });
+  socket.emit("game:stateUpdate", snapshot);
+  if (times) {
+    socket.emit("game:clockUpdate", {
+      gameId: game._id.toString(),
+      whiteTime: times.whiteTime,
+      blackTime: times.blackTime,
+    });
+  }
+}
+
+async function handleSpectateLeave(
+  socket: AppSocket,
+  payload: unknown,
+): Promise<void> {
+  const parsed = GameJoinSchema.safeParse(payload);
+  if (!parsed.success) {
+    emitSocketError(socket, "Invalid game");
+    return;
+  }
+  if (socket.data.spectatingGameId !== parsed.data.gameId) return;
+  await leaveSpectatedRoom(socket);
+}
+
 export function registerGameHandlers(io: AppServer): void {
+  ensureClockTicker(io);
   io.on("connection", (socket) => {
     socket.on("game:join", (payload) => {
       void handleJoin(socket, payload);
@@ -513,6 +822,16 @@ export function registerGameHandlers(io: AppServer): void {
     });
     socket.on("chat:message", (payload) => {
       void handleChatMessage(io, socket, payload);
+    });
+    socket.on("spectate:join", (payload) => {
+      void handleSpectateJoin(socket, payload);
+    });
+    socket.on("spectate:leave", (payload) => {
+      void handleSpectateLeave(socket, payload);
+    });
+    socket.on("disconnect", () => {
+      socket.data.role = "player";
+      socket.data.spectatingGameId = null;
     });
   });
 }

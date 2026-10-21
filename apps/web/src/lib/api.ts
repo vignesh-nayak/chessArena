@@ -1,4 +1,4 @@
-import type { ApiError } from "@chessarena/shared";
+import type { ApiError, MeResponse } from "@chessarena/shared";
 import { ApiErrorSchema } from "@chessarena/shared";
 import { useAuthStore } from "../store/authStore";
 
@@ -137,6 +137,11 @@ export async function apiFetch<T>(
   return json as T;
 }
 
+export async function refreshViewerRating(): Promise<void> {
+  const me = await apiFetch<MeResponse>("/api/users/me");
+  useAuthStore.getState().setRating(me.rating);
+}
+
 export async function bootstrapSession(): Promise<void> {
   const store = useAuthStore.getState();
   store.setBootstrapping(true);
@@ -146,13 +151,7 @@ export async function bootstrapSession(): Promise<void> {
       store.clearSession();
       return;
     }
-    const me = await apiFetch<{
-      id: string;
-      username: string;
-      email: string;
-      stats: { wins: number; losses: number; draws: number };
-      createdAt: string;
-    }>("/api/users/me", {
+    const me = await apiFetch<MeResponse>("/api/users/me", {
       accessToken,
       retryOnUnauthorized: false,
     });
@@ -161,6 +160,7 @@ export async function bootstrapSession(): Promise<void> {
       username: me.username,
       email: me.email,
     });
+    store.setRating(me.rating);
   } catch {
     store.clearSession();
   } finally {

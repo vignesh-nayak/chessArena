@@ -3,6 +3,7 @@ import { useAuthStore } from "../store/authStore";
 
 export function TopBar() {
   const user = useAuthStore((s) => s.user);
+  const rating = useAuthStore((s) => s.rating);
 
   return (
     <header className="flex items-center justify-between px-4 py-3">
@@ -15,6 +16,12 @@ export function TopBar() {
       {user ? (
         <nav className="flex items-center gap-4">
           <Link
+            to="/history"
+            className="text-sm text-muted hover:text-accent"
+          >
+            History
+          </Link>
+          <Link
             to="/leaderboard"
             className="text-sm text-muted hover:text-accent"
           >
@@ -22,9 +29,10 @@ export function TopBar() {
           </Link>
           <Link
             to="/profile"
-            className="text-sm text-muted hover:text-accent"
+            className="flex items-center gap-2 text-sm text-muted hover:text-accent"
           >
-            {user.username}
+            <span>{user.username}</span>
+            {rating != null ? <span>{rating}</span> : null}
           </Link>
         </nav>
       ) : (

@@ -3,6 +3,7 @@ import type { LobbyOnlineUser } from "@chessarena/shared";
 type LobbyMember = {
   userId: string;
   username: string;
+  rating: number;
   socketIds: Set<string>;
 };
 
@@ -17,20 +18,25 @@ export function isSocketInLobby(socketId: string): boolean {
 export function addLobbySocket(
   userId: string,
   username: string,
+  rating: number,
   socketId: string,
 ): boolean {
   if (userIdBySocketId.get(socketId) === userId) {
     const member = byUserId.get(userId);
-    if (member) member.username = username;
+    if (member) {
+      member.username = username;
+      member.rating = rating;
+    }
     return false;
   }
 
   let member = byUserId.get(userId);
   if (!member) {
-    member = { userId, username, socketIds: new Set() };
+    member = { userId, username, rating, socketIds: new Set() };
     byUserId.set(userId, member);
   } else {
     member.username = username;
+    member.rating = rating;
   }
 
   member.socketIds.add(socketId);
@@ -56,7 +62,7 @@ export function removeLobbySocket(socketId: string): boolean {
 
 export function listLobbyUsers(): LobbyOnlineUser[] {
   return [...byUserId.values()]
-    .map(({ userId, username }) => ({ userId, username }))
+    .map(({ userId, username, rating }) => ({ userId, username, rating }))
     .sort(
       (a, b) =>
         a.username.localeCompare(b.username) || a.userId.localeCompare(b.userId),

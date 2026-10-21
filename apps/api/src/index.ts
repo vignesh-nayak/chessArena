@@ -10,6 +10,7 @@ import { authRouter } from "./routes/auth.js";
 import { gamesRouter } from "./routes/games.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
 import { usersRouter } from "./routes/users.js";
+import { armPersistedClocks } from "./socket/clocks.js";
 import { initSocket } from "./socket/index.js";
 
 async function connectMongo(uri: string): Promise<void> {
@@ -18,6 +19,7 @@ async function connectMongo(uri: string): Promise<void> {
       serverSelectionTimeoutMS: 10000,
     });
     console.log("[api] MongoDB connected");
+    await armPersistedClocks();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(

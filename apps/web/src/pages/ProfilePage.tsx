@@ -3,15 +3,16 @@ import { Link } from "react-router-dom";
 import type { GameHistoryResponse, MeResponse } from "@chessarena/shared";
 import { TopBar } from "../components/TopBar";
 import { apiFetch } from "../lib/api";
-
-function gameResultLabel(g: GameHistoryResponse["items"][number]): string {
-  if (g.status === "in_progress") return "In progress";
-  if (g.result === "white") return "Win";
-  if (g.result === "black") return "Loss";
-  return "Draw";
-}
+import {
+  historyHref,
+  historyKind,
+  historyOpponent,
+  historyResultLabel,
+} from "../lib/gameHistory";
+import { useAuthStore } from "../store/authStore";
 
 export function ProfilePage() {
+  const userId = useAuthStore((s) => s.user?.id);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [history, setHistory] = useState<GameHistoryResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function ProfilePage() {
         if (!cancelled) {
           setMe(meData);
           setHistory(historyData);
+          useAuthStore.getState().setRating(meData.rating);
         }
       } catch {
         if (!cancelled) {
@@ -98,9 +100,17 @@ export function ProfilePage() {
             </section>
 
             <section className="mt-10 space-y-3">
-              <p className="text-sm tracking-wide text-muted uppercase">
-                Recent games
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm tracking-wide text-muted uppercase">
+                  Recent games
+                </p>
+                <Link
+                  className="text-sm text-muted hover:text-accent"
+                  to="/history"
+                >
+                  History
+                </Link>
+              </div>
               {!history ? (
                 <p className="text-sm text-muted">Loading…</p>
               ) : history.items.length === 0 ? (
@@ -116,10 +126,11 @@ export function ProfilePage() {
                     <li key={g.id}>
                       <Link
                         className="text-accent hover:underline"
-                        to={`/game/${g.id}`}
+                        to={historyHref(g)}
                       >
-                        {gameResultLabel(g)} · {g.moveCount} moves ·{" "}
-                        {new Date(g.updatedAt).toLocaleString()}
+                        vs {historyOpponent(g, userId)} · {historyKind(g)} ·{" "}
+                        {historyResultLabel(g, userId)} ·{" "}
+                        {new Date(g.createdAt).toLocaleString()}
                       </Link>
                     </li>
                   ))}

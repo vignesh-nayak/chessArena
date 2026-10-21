@@ -22,7 +22,7 @@ async function handleJoin(io: AppServer, socket: AppSocket): Promise<void> {
   }
 
   const user = await User.findById(socket.data.userId)
-    .select("username")
+    .select("username rating")
     .lean();
   if (!socket.connected) return;
 
@@ -31,7 +31,12 @@ async function handleJoin(io: AppServer, socket: AppSocket): Promise<void> {
     return;
   }
 
-  addLobbySocket(user._id.toString(), user.username, socket.id);
+  addLobbySocket(
+    user._id.toString(),
+    user.username,
+    user.rating ?? 1200,
+    socket.id,
+  );
   await socket.join(LOBBY_ROOM);
   broadcastLobby(io);
 }

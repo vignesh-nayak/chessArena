@@ -1,10 +1,15 @@
 import type { ServerToClientEvents } from "@chessarena/shared";
 import { START_FEN } from "@chessarena/shared";
+import { hasActivePvp } from "../../lib/activePvp.js";
+import { PVP_INITIAL_MS, PVP_TIME_CONTROL } from "../../lib/clock.js";
 import { Game } from "../../models/Game.js";
 import { emitSocketError } from "../errors.js";
+import { armClock } from "../clocks.js";
+import { enqueue, release, tryReserve } from "../matchmakingQueue.js";
 import { getLobbyUser } from "../lobbyPresence.js";
 import {
   cancelChallengesInvolving,
+  getPendingChallenge,
   createChallenge,
   declineChallenge,
   hasPendingIncoming,
@@ -27,13 +32,9 @@ function emitToUser<E extends keyof ServerToClientEvents>(
   }
 }
 
-async function hasActivePvp(userId: string): Promise<boolean> {
-  const game = await Game.exists({
-    gameType: "pvp",
-    status: "in_progress",
-    $or: [{ whitePlayer: userId }, { blackPlayer: userId }],
-  });
-  return game !== null;
+export function cancelOtherChallenges(io: AppServer, userIds: string[]): void {
+  const cancelled = cancelChallengesInvolving(userIds);
+  for (const challenge of cancelled) notifyCancelled(io, challenge);
 }
 
 function notifyCancelled(io: AppServer, challenge: PendingChallenge): void {
@@ -152,71 +153,97 @@ async function handleAccept(io: AppServer, socket: AppSocket, payload: unknown) 
     return;
   }
 
-  const challenge = takeChallengeForAccept(challengeId, socket.data.userId);
-  if (!challenge) {
+  const pending = getPendingChallenge(challengeId);
+  if (!pending || pending.toUserId !== socket.data.userId) {
     emitSocketError(socket, "Challenge not found");
     return;
   }
 
-  const sender = getLobbyUser(challenge.fromUserId);
-  const target = getLobbyUser(challenge.toUserId);
-  if (!sender || !target) {
-    emitSocketError(socket, "That player is not in the lobby");
-    return;
-  }
-
-  if (
-    (await hasActivePvp(challenge.fromUserId)) ||
-    (await hasActivePvp(challenge.toUserId))
-  ) {
+  const userIds = [pending.fromUserId, pending.toUserId];
+  const removed = tryReserve(userIds);
+  if (!removed) {
     emitSocketError(socket, "You are already in a game");
     return;
   }
 
-  const senderIsWhite = Math.random() < 0.5;
-  const whiteId = senderIsWhite ? challenge.fromUserId : challenge.toUserId;
-  const blackId = senderIsWhite ? challenge.toUserId : challenge.fromUserId;
-  const whiteUser = senderIsWhite ? sender : target;
-  const blackUser = senderIsWhite ? target : sender;
+  let restoreSearch = false;
+  try {
+    const challenge = takeChallengeForAccept(challengeId, socket.data.userId);
+    if (!challenge) {
+      restoreSearch = true;
+      emitSocketError(socket, "Challenge not found");
+      return;
+    }
 
-  const game = await Game.create({
-    whitePlayer: whiteId,
-    blackPlayer: blackId,
-    moves: [],
-    fen: START_FEN,
-    status: "in_progress",
-    result: null,
-    gameType: "pvp",
-    aiDifficulty: null,
-    drawOfferedBy: null,
-    socketRoomId: "pending",
-  });
-  const roomId = `game:${game._id.toString()}`;
-  game.socketRoomId = roomId;
-  await game.save();
+    const sender = getLobbyUser(challenge.fromUserId);
+    const target = getLobbyUser(challenge.toUserId);
+    if (!sender || !target) {
+      restoreSearch = true;
+      emitSocketError(socket, "That player is not in the lobby");
+      return;
+    }
 
-  for (const socketId of [...whiteUser.socketIds, ...blackUser.socketIds]) {
-    io.sockets.sockets.get(socketId)?.join(roomId);
+    if (
+      (await hasActivePvp(challenge.fromUserId)) ||
+      (await hasActivePvp(challenge.toUserId))
+    ) {
+      emitSocketError(socket, "You are already in a game");
+      return;
+    }
+
+    const senderIsWhite = Math.random() < 0.5;
+    const whiteId = senderIsWhite ? challenge.fromUserId : challenge.toUserId;
+    const blackId = senderIsWhite ? challenge.toUserId : challenge.fromUserId;
+    const whiteUser = senderIsWhite ? sender : target;
+    const blackUser = senderIsWhite ? target : sender;
+
+    const game = await Game.create({
+      whitePlayer: whiteId,
+      blackPlayer: blackId,
+      moves: [],
+      fen: START_FEN,
+      status: "in_progress",
+      result: null,
+      gameType: "pvp",
+      aiDifficulty: null,
+      drawOfferedBy: null,
+      socketRoomId: "pending",
+      timeControl: { ...PVP_TIME_CONTROL },
+      whiteTimeRemaining: PVP_INITIAL_MS,
+      blackTimeRemaining: PVP_INITIAL_MS,
+    });
+    const roomId = `game:${game._id.toString()}`;
+    game.socketRoomId = roomId;
+    await game.save();
+    armClock(game._id.toString());
+
+    for (const socketId of [...whiteUser.socketIds, ...blackUser.socketIds]) {
+      io.sockets.sockets.get(socketId)?.join(roomId);
+    }
+
+    cancelOtherChallenges(io, [challenge.fromUserId, challenge.toUserId]);
+
+    emitToUser(io, whiteId, "game:started", {
+      gameId: game._id.toString(),
+      color: "white",
+      opponent: { userId: blackUser.userId, username: blackUser.username },
+    });
+    emitToUser(io, blackId, "game:started", {
+      gameId: game._id.toString(),
+      color: "black",
+      opponent: { userId: whiteUser.userId, username: whiteUser.username },
+    });
+  } catch (err) {
+    restoreSearch = true;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[socket] Challenge accept failed: ${message}`);
+    emitSocketError(socket, "Could not start game");
+  } finally {
+    release(userIds);
+    if (restoreSearch) {
+      for (const entry of removed) enqueue(entry);
+    }
   }
-
-  const cancelled = cancelChallengesInvolving([
-    challenge.fromUserId,
-    challenge.toUserId,
-  ]);
-  for (const other of cancelled) {
-    notifyCancelled(io, other);
-  }
-
-  emitToUser(io, whiteId, "game:started", {
-    gameId: game._id.toString(),
-    color: "white",
-    opponent: { userId: blackUser.userId, username: blackUser.username },
-  });
-  emitToUser(io, blackId, "game:started", {
-    gameId: game._id.toString(),
-    color: "black",
-    opponent: { userId: whiteUser.userId, username: whiteUser.username },
-  });
 }
 
 export function registerChallengeHandlers(io: AppServer): void {

@@ -6,6 +6,7 @@ import { emitSocketError } from "./errors.js";
 import { registerChallengeHandlers } from "./handlers/challenge.js";
 import { registerGameHandlers } from "./handlers/game.js";
 import { registerLobbyHandlers } from "./handlers/lobby.js";
+import { registerMatchmakingHandlers } from "./handlers/matchmaking.js";
 import type { AppServer } from "./types.js";
 
 export { emitSocketError };
@@ -21,6 +22,7 @@ export function initSocket(httpServer: HttpServer): AppServer {
   io.use(socketAuthMiddleware);
   registerLobbyHandlers(io);
   registerChallengeHandlers(io);
+  registerMatchmakingHandlers(io);
   registerGameHandlers(io);
 
   io.on("connection", (socket) => {

@@ -5,6 +5,7 @@ import {
   toUci,
   type AiDifficulty,
   type GameEndReason,
+  type GameClockUpdate,
   type GameEnded,
   type GameStateUpdate,
   type GameView,
@@ -45,6 +46,13 @@ type GameUiState = {
   myColor: Side;
   whiteName: string;
   blackName: string;
+  whiteId: string | null;
+  blackId: string | null;
+  whiteRating: number | null;
+  blackRating: number | null;
+  whiteTime: number | null;
+  blackTime: number | null;
+  clockUpdatedAt: number | null;
   aiDifficulty: AiDifficulty | null;
   loadStatus: LoadStatus;
   loadError: string | null;
@@ -57,8 +65,10 @@ type GameUiState = {
   applyGameView: (view: GameView) => void;
   applyRealtimeState: (update: GameStateUpdate) => void;
   applyGameEnded: (ended: GameEnded) => void;
+  applyClockUpdate: (update: GameClockUpdate) => void;
   rejectPendingMove: (message: string) => void;
   loadGame: (gameId: string) => Promise<void>;
+  refreshPlayerRatings: () => Promise<void>;
   selectSquare: (square: string | null) => void;
   attemptMove: (from: string, to: string, promotion?: string) => Promise<boolean>;
   completePromotion: (piece: "q" | "r" | "b" | "n") => Promise<boolean>;
@@ -170,6 +180,13 @@ export const useGameStore = create<GameUiState>((set, get) => ({
   myColor: "w",
   whiteName: "White",
   blackName: "Black",
+  whiteId: null,
+  blackId: null,
+  whiteRating: null,
+  blackRating: null,
+  whiteTime: null,
+  blackTime: null,
+  clockUpdatedAt: null,
   aiDifficulty: null,
   loadStatus: "idle",
   loadError: null,
@@ -191,6 +208,16 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       myColor: myColorFromView(view),
       whiteName: view.white.username,
       blackName: view.black.username,
+      whiteId: view.white.id,
+      blackId: view.black.id,
+      whiteRating: view.white.rating,
+      blackRating: view.black.rating,
+      whiteTime: view.whiteTime,
+      blackTime: view.blackTime,
+      clockUpdatedAt:
+        view.status === "in_progress" && view.whiteTime != null
+          ? Date.now()
+          : null,
       aiDifficulty: view.aiDifficulty,
       pendingPromotion: null,
       loadStatus: "ready",
@@ -240,10 +267,21 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       result: ended.result,
       endReason: ended.reason,
       isGameOver: true,
+      clockUpdatedAt: null,
       moving: false,
       moveError: null,
       pendingPromotion: null,
       ...clearSelection(),
+    });
+  },
+
+  applyClockUpdate: (update) => {
+    const state = get();
+    if (state.gameId && state.gameId !== update.gameId) return;
+    set({
+      whiteTime: update.whiteTime,
+      blackTime: update.blackTime,
+      clockUpdatedAt: state.status === "in_progress" ? Date.now() : null,
     });
   },
 
@@ -258,6 +296,21 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       return;
     }
     set({ moveError: message });
+  },
+
+  refreshPlayerRatings: async () => {
+    const gameId = get().gameId;
+    if (!gameId) return;
+    try {
+      const view = await apiFetch<GameView>(`/api/games/${gameId}`);
+      if (get().gameId !== gameId) return;
+      set({
+        whiteRating: view.white.rating,
+        blackRating: view.black.rating,
+      });
+    } catch {
+      // Keep the ratings loaded with the game.
+    }
   },
 
   loadGame: async (gameId) => {

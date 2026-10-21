@@ -5,8 +5,15 @@ import type {
   GameHistoryResponse,
   GameView,
 } from "@chessarena/shared";
+import { FindMatchButton } from "../components/FindMatchButton";
 import { TopBar } from "../components/TopBar";
 import { apiFetch } from "../lib/api";
+import {
+  historyHref,
+  historyKind,
+  historyOpponent,
+  historyResultLabel,
+} from "../lib/gameHistory";
 import { useAuthStore } from "../store/authStore";
 
 const DIFFICULTIES: { value: AiDifficulty; label: string }[] = [
@@ -95,6 +102,7 @@ export function HomePage() {
           <p className="text-sm tracking-wide text-muted uppercase">
             Play online
           </p>
+          <FindMatchButton />
           <Link
             className="inline-block text-sm text-accent hover:underline"
             to="/lobby"
@@ -139,9 +147,14 @@ export function HomePage() {
         </section>
 
         <section className="mt-10 space-y-3">
-          <p className="text-sm tracking-wide text-muted uppercase">
-            Recent games
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm tracking-wide text-muted uppercase">
+              Recent games
+            </p>
+            <Link className="text-sm text-muted hover:text-accent" to="/history">
+              History
+            </Link>
+          </div>
           {historyError ? (
             <p className="text-sm text-muted">{historyError}</p>
           ) : null}
@@ -155,17 +168,11 @@ export function HomePage() {
                 <li key={g.id}>
                   <Link
                     className="text-accent hover:underline"
-                    to={`/game/${g.id}`}
+                    to={historyHref(g)}
                   >
-                    {g.status === "in_progress"
-                      ? "In progress"
-                      : g.result === "white"
-                        ? "Win"
-                        : g.result === "black"
-                          ? "Loss"
-                          : "Draw"}{" "}
-                    · {g.moveCount} moves ·{" "}
-                    {new Date(g.updatedAt).toLocaleString()}
+                    vs {historyOpponent(g, user?.id)} · {historyKind(g)} ·{" "}
+                    {historyResultLabel(g, user?.id)} ·{" "}
+                    {new Date(g.createdAt).toLocaleString()}
                   </Link>
                 </li>
               ))}

@@ -6,6 +6,8 @@ import type { Server, Socket } from "socket.io";
 
 export type SocketData = {
   userId: string;
+  role?: "player" | "spectator";
+  spectatingGameId?: string | null;
 };
 
 export type AppServer = Server<

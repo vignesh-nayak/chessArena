@@ -4,12 +4,15 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SocketProvider } from "./components/SocketProvider";
 import { bootstrapSession } from "./lib/api";
 import { useGameStartedNavigation } from "./hooks/useGameStartedNavigation";
+import { useMatchmaking } from "./hooks/useMatchmaking";
 import { GamePage } from "./pages/GamePage";
+import { HistoryPage } from "./pages/HistoryPage";
 import { HomePage } from "./pages/HomePage";
 import { LobbyPage } from "./pages/LobbyPage";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ReplayPage } from "./pages/ReplayPage";
 import { SignupPage } from "./pages/SignupPage";
 import { StatusPage } from "./pages/StatusPage";
 
@@ -50,11 +53,27 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <HistoryPage />
+            </ProtectedRoute>
+          }
+        />
           <Route
             path="/profile"
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/game/:id/replay"
+            element={
+              <ProtectedRoute>
+                <ReplayPage />
               </ProtectedRoute>
             }
           />
@@ -75,5 +94,6 @@ export default function App() {
 
 function GameStartedListener() {
   useGameStartedNavigation();
+  useMatchmaking();
   return null;
 }

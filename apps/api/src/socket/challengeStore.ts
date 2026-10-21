@@ -104,6 +104,20 @@ export function createChallenge(
   };
 }
 
+export function getPendingChallenge(
+  challengeId: string,
+): PendingChallenge | null {
+  const challenge = challenges.get(challengeId);
+  if (!challenge) return null;
+  return {
+    challengeId: challenge.challengeId,
+    fromUserId: challenge.fromUserId,
+    toUserId: challenge.toUserId,
+    fromUsername: challenge.fromUsername,
+    expiresAt: challenge.expiresAt,
+  };
+}
+
 export function takeChallengeForAccept(
   challengeId: string,
   userId: string,

@@ -2,14 +2,21 @@ import { useEffect, useRef } from "react";
 
 type MoveListProps = {
   moves: string[];
+  currentPly?: number;
+  onSelectPly?: (ply: number) => void;
 };
 
-export function MoveList({ moves }: MoveListProps) {
+export function MoveList({ moves, currentPly, onSelectPly }: MoveListProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
+  const currentRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    if (onSelectPly) {
+      currentRef.current?.scrollIntoView({ block: "nearest" });
+      return;
+    }
     endRef.current?.scrollIntoView({ block: "nearest" });
-  }, [moves.length]);
+  }, [currentPly, moves.length, onSelectPly]);
 
   const rows: { number: number; white?: string; black?: string }[] = [];
   for (let i = 0; i < moves.length; i += 2) {
@@ -20,6 +27,28 @@ export function MoveList({ moves }: MoveListProps) {
     });
   }
 
+  function moveCell(san: string | undefined, ply: number) {
+    if (!san) return <span />;
+    const selected = currentPly === ply;
+    if (!onSelectPly) {
+      return <span>{san}</span>;
+    }
+    return (
+      <button
+        type="button"
+        ref={selected ? currentRef : undefined}
+        className={
+          selected
+            ? "text-left font-medium text-accent"
+            : "text-left text-text hover:text-accent"
+        }
+        onClick={() => onSelectPly(ply)}
+      >
+        {san}
+      </button>
+    );
+  }
+
   return (
     <div className="flex max-h-48 min-h-32 flex-col overflow-hidden lg:max-h-none lg:flex-1">
       <p className="mb-2 text-xs tracking-wide text-muted uppercase">Moves</p>
@@ -27,13 +56,19 @@ export function MoveList({ moves }: MoveListProps) {
         {rows.length === 0 ? (
           <p className="text-muted">No moves yet</p>
         ) : (
-          rows.map((row) => (
-            <div key={row.number} className="grid grid-cols-[2rem_1fr_1fr] gap-2">
-              <span className="text-muted">{row.number}.</span>
-              <span>{row.white}</span>
-              <span>{row.black ?? ""}</span>
-            </div>
-          ))
+          rows.map((row) => {
+            const whitePly = (row.number - 1) * 2 + 1;
+            return (
+              <div
+                key={row.number}
+                className="grid grid-cols-[2rem_1fr_1fr] gap-2"
+              >
+                <span className="text-muted">{row.number}.</span>
+                {moveCell(row.white, whitePly)}
+                {moveCell(row.black, whitePly + 1)}
+              </div>
+            );
+          })
         )}
         <div ref={endRef} />
       </div>

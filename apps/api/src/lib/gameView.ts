@@ -1,10 +1,12 @@
 import type { GameSummary, GameView, Side } from "@chessarena/shared";
 import { getFlags, stateFromSans } from "@chessarena/shared";
 import type { GameDocument } from "../models/Game.js";
+import { snapshotClocks } from "../socket/clocks.js";
 
 type PlayerRef = {
   id: string;
   username: string;
+  rating: number | null;
 };
 
 function lastMoveFromSans(
@@ -48,6 +50,7 @@ export function toGameView(
     black: players.black,
     createdAt: game.createdAt.toISOString(),
     updatedAt: game.updatedAt.toISOString(),
+    ...snapshotClocks(game, turn),
   };
 
   if (game.gameType === "pvp") {
@@ -65,12 +68,17 @@ export function toGameView(
   };
 }
 
-export function toGameSummary(game: GameDocument): GameSummary {
+export function toGameSummary(
+  game: GameDocument,
+  players: { white: PlayerRef; black: PlayerRef },
+): GameSummary {
   const shared = {
     id: game._id.toString(),
     status: game.status as GameSummary["status"],
     result: game.result as GameSummary["result"],
     moveCount: game.moves.length,
+    white: players.white,
+    black: players.black,
     createdAt: game.createdAt.toISOString(),
     updatedAt: game.updatedAt.toISOString(),
   };

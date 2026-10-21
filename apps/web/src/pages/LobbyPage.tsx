@@ -1,6 +1,11 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import type { LiveGame } from "@chessarena/shared";
+import { FindMatchButton } from "../components/FindMatchButton";
 import { TopBar } from "../components/TopBar";
 import { useLobbyChallenges } from "../hooks/useLobbyChallenges";
 import { useLobbyPresence } from "../hooks/useLobbyPresence";
+import { apiFetch } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { useLobbyStore } from "../store/lobbyStore";
 import { useRealtimeStore } from "../store/realtimeStore";
@@ -15,6 +20,25 @@ export function LobbyPage() {
   const incoming = useLobbyStore((s) => s.incoming);
   const status = useRealtimeStore((s) => s.status);
   const lastErrorMessage = useRealtimeStore((s) => s.lastErrorMessage);
+  const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLive() {
+      try {
+        const data = await apiFetch<{ items: LiveGame[] }>("/api/games/live");
+        if (!cancelled) setLiveGames(data.items);
+      } catch {
+        if (!cancelled) setLiveGames([]);
+      }
+    }
+    void loadLive();
+    const timer = setInterval(() => void loadLive(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   const connectionCopy =
     status === "connected"
@@ -31,6 +55,9 @@ export function LobbyPage() {
         <p className="mt-2 text-sm text-muted">
           Players currently in the lobby.
         </p>
+        <div className="mt-6">
+          <FindMatchButton />
+        </div>
 
         {incoming ? (
           <section className="mt-8 space-y-3 border border-muted/40 px-4 py-3">
@@ -58,6 +85,38 @@ export function LobbyPage() {
 
         <section className="mt-10 space-y-3">
           <p className="text-sm tracking-wide text-muted uppercase">
+            Live games
+          </p>
+          {liveGames.length === 0 ? (
+            <p className="text-sm text-muted">No live games</p>
+          ) : (
+            <ul className="space-y-2 text-left text-sm">
+              {liveGames.map((game) => {
+                const mine =
+                  game.white.id === selfId || game.black.id === selfId;
+                return (
+                  <li
+                    key={game.id}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span className="text-text">
+                      {game.white.username} vs {game.black.username}
+                    </span>
+                    <Link
+                      className="border border-muted/40 px-3 py-1.5 text-sm text-muted"
+                      to={mine ? `/game/${game.id}` : `/game/${game.id}?spectate=1`}
+                    >
+                      {mine ? "Your game" : "Watch"}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-10 space-y-3">
+          <p className="text-sm tracking-wide text-muted uppercase">
             Online now
           </p>
           {connectionCopy ? (
@@ -77,7 +136,10 @@ export function LobbyPage() {
                     key={user.userId}
                     className="flex items-center justify-between gap-3"
                   >
-                    <span className="text-text">{user.username}</span>
+                    <span className="text-text">
+                      {user.username}{" "}
+                      <span className="text-muted">{user.rating}</span>
+                    </span>
                     {isSelf ? (
                       <span className="text-sm text-muted">You</span>
                     ) : (

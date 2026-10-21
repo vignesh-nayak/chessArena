@@ -15,6 +15,7 @@ export type SocketErrorPayload = z.infer<typeof SocketErrorPayloadSchema>;
 export const LobbyOnlineUserSchema = z.object({
   userId: z.string().min(1),
   username: z.string().min(1),
+  rating: z.number().int(),
 });
 
 export type LobbyOnlineUser = z.infer<typeof LobbyOnlineUserSchema>;
@@ -61,6 +62,28 @@ export const GameStartedSchema = z.object({
 });
 
 export type GameStarted = z.infer<typeof GameStartedSchema>;
+
+export const TimeControlSchema = z.object({
+  initial: z.literal(600),
+  increment: z.literal(5),
+});
+
+export type TimeControl = z.infer<typeof TimeControlSchema>;
+
+export const MatchmakingJoinSchema = z.object({
+  timeControl: TimeControlSchema,
+});
+
+export type MatchmakingJoin = z.infer<typeof MatchmakingJoinSchema>;
+
+export const MatchmakingMatchedSchema = z.object({
+  gameId: z.string().min(1),
+  color: z.enum(["white", "black"]),
+  opponent: GameStartedOpponentSchema,
+  timeControl: TimeControlSchema,
+});
+
+export type MatchmakingMatched = z.infer<typeof MatchmakingMatchedSchema>;
 
 const uciMove = z
   .string()
@@ -118,6 +141,7 @@ export const GameEndReasonSchema = z.enum([
   "resign",
   "agreement",
   "draw",
+  "timeout",
 ]);
 
 export type GameEndReason = z.infer<typeof GameEndReasonSchema>;
@@ -142,6 +166,31 @@ export const GameEndedSchema = z.object({
 });
 
 export type GameEnded = z.infer<typeof GameEndedSchema>;
+
+export const GameClockUpdateSchema = z.object({
+  gameId: z.string().min(1),
+  whiteTime: z.number().int().nonnegative(),
+  blackTime: z.number().int().nonnegative(),
+});
+
+export type GameClockUpdate = z.infer<typeof GameClockUpdateSchema>;
+
+export const GameTimeoutSchema = z.object({
+  gameId: z.string().min(1),
+  winner: z.enum(["white", "black"]),
+});
+
+export type GameTimeout = z.infer<typeof GameTimeoutSchema>;
+
+export const SpectateStateUpdateSchema = z.object({
+  gameId: z.string().min(1),
+  fen: z.string().min(1),
+  lastMove: GameLastMoveSchema.nullable(),
+  whiteTime: z.number().int().nonnegative().nullable(),
+  blackTime: z.number().int().nonnegative().nullable(),
+});
+
+export type SpectateStateUpdate = z.infer<typeof SpectateStateUpdateSchema>;
 
 export const ChatMessageSchema = z.object({
   gameId: z.string().min(1),
@@ -171,6 +220,10 @@ export interface ClientToServerEvents {
   "game:offerDraw": (payload: GameOfferDraw) => void;
   "game:respondDraw": (payload: GameRespondDraw) => void;
   "chat:message": (payload: ChatMessage) => void;
+  "matchmaking:join": (payload: MatchmakingJoin) => void;
+  "matchmaking:leave": () => void;
+  "spectate:join": (payload: GameJoin) => void;
+  "spectate:leave": (payload: GameJoin) => void;
 }
 
 export interface ServerToClientEvents {
@@ -181,5 +234,9 @@ export interface ServerToClientEvents {
   "game:started": (payload: GameStarted) => void;
   "game:stateUpdate": (payload: GameStateUpdate) => void;
   "game:ended": (payload: GameEnded) => void;
+  "game:clockUpdate": (payload: GameClockUpdate) => void;
+  "game:timeout": (payload: GameTimeout) => void;
   "chat:newMessage": (payload: ChatNewMessage) => void;
+  "matchmaking:matched": (payload: MatchmakingMatched) => void;
+  "spectate:stateUpdate": (payload: SpectateStateUpdate) => void;
 }

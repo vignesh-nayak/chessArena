@@ -5,6 +5,14 @@ import mongoose, {
   type Model,
 } from "mongoose";
 
+const timeControlSchema = new Schema(
+  {
+    initial: { type: Number, required: true },
+    increment: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
 const gameSchema = new Schema(
   {
     whitePlayer: {
@@ -55,6 +63,18 @@ const gameSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+    timeControl: {
+      type: timeControlSchema,
+      required: false,
+    },
+    whiteTimeRemaining: {
+      type: Number,
+      required: false,
+    },
+    blackTimeRemaining: {
+      type: Number,
+      required: false,
     },
   },
   { timestamps: true },
