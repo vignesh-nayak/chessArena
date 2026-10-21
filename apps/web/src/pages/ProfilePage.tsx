@@ -67,7 +67,8 @@ export function ProfilePage() {
                 Profile
               </p>
               <h1 className="text-2xl font-medium text-text">{me.username}</h1>
-              <p className="mt-2 text-sm text-muted">{me.email}</p>
+              <p className="mt-2 text-sm text-muted">Rating {me.rating}</p>
+              <p className="mt-1 text-sm text-muted">{me.email}</p>
             </div>
 
             <section className="mt-10">

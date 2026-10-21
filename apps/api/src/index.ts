@@ -2,12 +2,15 @@ import type { HealthResponse } from "@chessarena/shared";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import { createServer } from "node:http";
 import mongoose from "mongoose";
 import { env } from "./env.js";
 import { createGame } from "./lib/chessRules.js";
 import { authRouter } from "./routes/auth.js";
 import { gamesRouter } from "./routes/games.js";
+import { leaderboardRouter } from "./routes/leaderboard.js";
 import { usersRouter } from "./routes/users.js";
+import { initSocket } from "./socket/index.js";
 
 async function connectMongo(uri: string): Promise<void> {
   try {
@@ -58,6 +61,7 @@ async function main(): Promise<void> {
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/games", gamesRouter);
+  app.use("/api/leaderboard", leaderboardRouter);
 
   app.use(
     (
@@ -76,7 +80,10 @@ async function main(): Promise<void> {
     },
   );
 
-  app.listen(env.port, "0.0.0.0", () => {
+  const httpServer = createServer(app);
+  initSocket(httpServer);
+
+  httpServer.listen(env.port, "0.0.0.0", () => {
     console.log(`[api] Listening on http://0.0.0.0:${env.port}`);
     console.log(`[api] CORS origins: ${env.corsOrigin}`);
   });

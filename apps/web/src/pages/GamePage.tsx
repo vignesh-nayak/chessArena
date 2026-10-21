@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { AiDifficulty } from "@chessarena/shared";
 import { ChessBoard } from "../components/ChessBoard";
+import { GameChatPanel } from "../components/GameChatPanel";
 import { MoveList } from "../components/MoveList";
 import { PlayerBar } from "../components/PlayerBar";
 import { TopBar } from "../components/TopBar";
+import { useGameRealtimeSync } from "../hooks/useGameRealtimeSync";
 import { levelFor } from "../lib/aiLevels";
 import { StockfishEngine } from "../lib/stockfishEngine";
 import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
+import { useRealtimeStore } from "../store/realtimeStore";
 
 export function GamePage() {
   const { id } = useParams<{ id: string }>();
@@ -31,17 +34,26 @@ export function GamePage() {
   const status = useGameStore((s) => s.status);
   const result = useGameStore((s) => s.result);
   const aiDifficulty = useGameStore((s) => s.aiDifficulty);
+  const gameType = useGameStore((s) => s.gameType);
+  const myColor = useGameStore((s) => s.myColor);
+  const whiteName = useGameStore((s) => s.whiteName);
+  const blackName = useGameStore((s) => s.blackName);
   const loadStatus = useGameStore((s) => s.loadStatus);
   const loadError = useGameStore((s) => s.loadError);
   const moving = useGameStore((s) => s.moving);
   const aiThinking = useGameStore((s) => s.aiThinking);
   const aiError = useGameStore((s) => s.aiError);
+  const endReason = useGameStore((s) => s.endReason);
+  const moveError = useGameStore((s) => s.moveError);
+  const drawOfferedBy = useGameStore((s) => s.drawOfferedBy);
   const loadGame = useGameStore((s) => s.loadGame);
   const selectSquare = useGameStore((s) => s.selectSquare);
   const attemptMove = useGameStore((s) => s.attemptMove);
   const completePromotion = useGameStore((s) => s.completePromotion);
   const cancelPromotion = useGameStore((s) => s.cancelPromotion);
   const resign = useGameStore((s) => s.resign);
+  const offerDraw = useGameStore((s) => s.offerDraw);
+  const respondDraw = useGameStore((s) => s.respondDraw);
   const createGame = useGameStore((s) => s.createGame);
   const submitUci = useGameStore((s) => s.submitUci);
   const setAiThinking = useGameStore((s) => s.setAiThinking);
@@ -49,6 +61,10 @@ export function GamePage() {
 
   const [resigning, setResigning] = useState(false);
   const [creating, setCreating] = useState(false);
+  const realtimeStatus = useRealtimeStore((s) => s.status);
+  const realtimeError = useRealtimeStore((s) => s.lastErrorMessage);
+
+  useGameRealtimeSync(id);
 
   const engineRef = useRef<StockfishEngine | null>(null);
   const searchGenRef = useRef(0);
@@ -170,14 +186,33 @@ export function GamePage() {
   );
 
   const statusText = (() => {
-    if (status === "completed" && result === "black" && !isCheckmate) {
+    if (gameType === "pvp" && realtimeStatus !== "connected") {
+      return realtimeStatus === "disconnected"
+        ? (realtimeError ?? "Realtime disconnected")
+        : "Reconnecting…";
+    }
+    if (endReason === "resign") {
+      return result === "black"
+        ? "White resigned — Black wins"
+        : "Black resigned — White wins";
+    }
+    if (endReason === "agreement") return "Draw by agreement";
+    if (
+      gameType !== "pvp" &&
+      status === "completed" &&
+      result === "black" &&
+      !isCheckmate
+    ) {
       return "You resigned — AI wins";
     }
-    if (isCheckmate) {
+    if (endReason === "checkmate" || isCheckmate) {
       return turn === "w" ? "Checkmate — Black wins" : "Checkmate — White wins";
     }
-    if (isStalemate) return "Stalemate";
-    if (isDraw || result === "draw") return "Draw";
+    if (endReason === "stalemate" || isStalemate) return "Stalemate";
+    if (endReason === "insufficient_material") return "Draw — insufficient material";
+    if (endReason === "threefold_repetition") return "Draw — threefold repetition";
+    if (endReason === "fifty_move") return "Draw — fifty-move rule";
+    if (isDraw || result === "draw" || endReason === "draw") return "Draw";
     if (aiThinking) return "AI thinking…";
     if (inCheck) return "Check";
     if (turn === "b") return "Black to move";
@@ -185,6 +220,7 @@ export function GamePage() {
   })();
 
   async function onResign() {
+    if (!window.confirm("Resign this game?")) return;
     setResigning(true);
     searchGenRef.current += 1;
     engineRef.current?.stop();
@@ -225,13 +261,24 @@ export function GamePage() {
     );
   }
 
+  const realtimeReady = gameType !== "pvp" || realtimeStatus === "connected";
   const canMove =
+    realtimeReady &&
     status === "in_progress" &&
-    turn === "w" &&
+    turn === myColor &&
     !pendingPromotion &&
     !moving &&
     !aiThinking &&
     !isGameOver;
+
+  const opponentName = myColor === "b" ? whiteName : blackName;
+  const selfName = myColor === "b" ? blackName : (user?.username ?? whiteName);
+  const incomingDraw =
+    gameType === "pvp" &&
+    status === "in_progress" &&
+    Boolean(drawOfferedBy) &&
+    drawOfferedBy !== user?.id;
+  const ownDrawOffer = Boolean(user?.id) && drawOfferedBy === user?.id;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -240,11 +287,14 @@ export function GamePage() {
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 lg:flex-row lg:items-start lg:justify-center lg:gap-8">
         <section className="flex w-full flex-col items-center lg:w-auto">
           <div className="w-full max-w-[min(70vh,100%)]">
-            <PlayerBar username="AI" sideLabel="B" />
+            <PlayerBar
+              username={opponentName}
+              sideLabel={myColor === "b" ? "W" : "B"}
+            />
           </div>
           <ChessBoard
             fen={fen}
-            orientation="white"
+            orientation={myColor === "b" ? "black" : "white"}
             lastMove={lastMove ?? undefined}
             arePiecesDraggable={canMove}
             onMove={onMove}
@@ -255,7 +305,10 @@ export function GamePage() {
             onSelectSquare={selectSquare}
           />
           <div className="w-full max-w-[min(70vh,100%)]">
-            <PlayerBar username={user?.username ?? "White"} sideLabel="W" />
+            <PlayerBar
+              username={selfName}
+              sideLabel={myColor === "b" ? "B" : "W"}
+            />
           </div>
         </section>
 
@@ -272,6 +325,11 @@ export function GamePage() {
           {aiError ? (
             <p className="text-sm text-red-400" role="alert">
               {aiError}
+            </p>
+          ) : null}
+          {moveError ? (
+            <p className="text-sm text-red-400" role="alert">
+              {moveError}
             </p>
           ) : null}
 
@@ -309,23 +367,67 @@ export function GamePage() {
 
           <MoveList moves={moves} />
 
+          {gameType === "pvp" && id ? (
+            <GameChatPanel gameId={id} canSend={realtimeReady} />
+          ) : null}
+
+          {incomingDraw ? (
+            <div className="space-y-2 border border-muted/40 px-3 py-3">
+              <p className="text-sm text-text">{opponentName} offered a draw</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+                  onClick={() => respondDraw(true)}
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  className="border border-muted/40 px-3 py-1.5 text-sm text-muted"
+                  onClick={() => respondDraw(false)}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-auto flex flex-wrap gap-3 pt-2">
             <button
               type="button"
               className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
-              disabled={status !== "in_progress" || resigning}
+              disabled={
+                !realtimeReady || status !== "in_progress" || resigning
+              }
               onClick={() => void onResign()}
             >
               {resigning ? "Resigning…" : "Resign"}
             </button>
-            <button
-              type="button"
-              className="bg-accent px-3 py-1.5 text-sm font-medium text-bg disabled:opacity-60"
-              disabled={creating}
-              onClick={() => void onNewGame()}
-            >
-              {creating ? "Starting…" : "New game"}
-            </button>
+            {gameType === "pvp" ? (
+              <button
+                type="button"
+                className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+                disabled={
+                  !realtimeReady ||
+                  status !== "in_progress" ||
+                  ownDrawOffer ||
+                  incomingDraw
+                }
+                onClick={() => offerDraw()}
+              >
+                {ownDrawOffer ? "Draw offered" : "Offer draw"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="bg-accent px-3 py-1.5 text-sm font-medium text-bg disabled:opacity-60"
+                disabled={creating}
+                onClick={() => void onNewGame()}
+              >
+                {creating ? "Starting…" : "New game"}
+              </button>
+            )}
           </div>
         </aside>
       </div>

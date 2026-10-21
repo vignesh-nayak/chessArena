@@ -93,6 +93,18 @@ export function HomePage() {
 
         <section className="mt-10 space-y-4">
           <p className="text-sm tracking-wide text-muted uppercase">
+            Play online
+          </p>
+          <Link
+            className="inline-block text-sm text-accent hover:underline"
+            to="/lobby"
+          >
+            Open lobby
+          </Link>
+        </section>
+
+        <section className="mt-10 space-y-4">
+          <p className="text-sm tracking-wide text-muted uppercase">
             Play vs AI
           </p>
           <div className="flex flex-wrap gap-2">

@@ -2,6 +2,70 @@
 
 Accumulated as ChessArena is built. Newest entries at the top within each week.
 
+## Week 3
+
+### W3-F05 — Leaderboard
+
+**The leaderboard is an authenticated read of `User.rating`.** `GET /api/leaderboard?limit=50` returns `{ items }` sorted by rating descending, then username ascending so ties stay stable. `limit` defaults to 50 and rejects values outside 1–100. Each row is `{ userId, username, rating, stats }`. The page refetches on mount, so a finished game shows up after navigation without a client cache.
+
+**Ratings move only on completed PvP games.** `completeGame` applies the standard ELO formula for both humans and appends `ratingHistory`. K is 32 until that history has 30 entries, then 16. AI results still change win/loss/draw stats only. New users start at 1200.
+
+## Week 2
+
+### W2-F07 — In-game chat
+
+**Chat is ephemeral and room-scoped.** `chat:message` accepts `{ gameId, text }` from a PvP participant only. The server trims the text, rejects empty or over-200-character messages, then broadcasts `chat:newMessage` as `{ gameId, from, text, sentAt }` to that game room. `from` is the username loaded from Mongo, not a client-supplied name. HTML is not interpreted; the client renders the string as text.
+
+**There is no replay on join.** Messages live only in the open page. A refresh starts an empty list and shows messages sent after that socket is in the room. Post-game messages stay allowed while a participant is still connected, matching the “until both leave” rule. Spectators cannot send.
+
+**Spam control is an in-memory window of 5 messages per 10 seconds per user per game.** Over the limit, only the sender gets `Slow down`. The limit is process-local, same as lobby presence.
+
+### W2-F06 — Resign and draw offers
+
+**PvP resign and draw offers stay on the game socket.** `game:resign` completes the game for the opponent with reason `resign`. `game:offerDraw` stores `drawOfferedBy` and broadcasts the existing `game:stateUpdate`. `game:respondDraw` either completes a draw with reason `agreement` or clears the offer. The same per-game queue used for moves serializes these actions, so a second resign after the game is already finished is only an error to that caller.
+
+**A draw offer does not survive a reply or a move.** Decline clears `drawOfferedBy`. A legal move also clears it, which was already true for live sync. The offerer cannot accept their own offer. AI games still resign through `PATCH /api/games/:id/resign`.
+
+### W2-F04 — Realtime game sync
+
+**PvP moves are server-authoritative over the game room.** The client sends a UCI intent with `game:move`. The API rebuilds the position from stored SAN, checks that the socket user is the side to move, validates with the shared chess wrapper, then persists. Only after that save does the room get `game:stateUpdate`. Illegal and out-of-turn attempts emit `error` to the mover only.
+
+**One rich `game:stateUpdate` is both the join snapshot and the move broadcast.** Payload is `{ gameId, fen, lastMove, turn, moves, status, result, drawOfferedBy }`. `lastMove` is `{ from, to, promotion? }`. Mate and draw also emit `game:ended { gameId, result, reason }` after `completeGame`. A successful move clears `drawOfferedBy` so a later draw-offer feature does not survive a ply.
+
+**`PATCH /api/games/:id/move` rejects `gameType: "pvp"`.** AI games stay on REST. PvP has a single transport so a tampered client cannot apply a move the opponent never sees. The board stays read-only until the socket is connected, and `game:join` runs again after reconnect so the room membership lost on disconnect is restored from Mongo.
+
+### W2-F03 — Challenge flow
+
+**Challenges live in memory for 60 seconds.** `challenge:send` creates one pending challenge between two lobby users. Accept is single-winner: the challenge is removed before the game document is created, so a second accept fails. Decline and expiry notify the sender with `challenge:declined`.
+
+**Colors are random.** `Math.random() < 0.5` makes the sender White. Accept persists a `pvp` game with both players as ObjectIds, `aiDifficulty: null`, `socketRoomId`, and `drawOfferedBy: null`. Both players' current lobby sockets join that room and each receives `game:started` with their own color.
+
+**Other pending challenges involving either player are cancelled on accept.** A player already in an `in_progress` PvP game cannot send or accept. Self-challenges are rejected.
+
+**Both participants can load `GET /api/games/:id`.** The board orients to the signed-in color. Live move sync stays on the existing REST path until W2-F04 sockets; PvP resign stays on the later socket flow.
+
+### W2-F02 — Lobby and presence
+
+**Lobby membership is a Socket.io room plus an in-memory map on the API process.** A user is online in the lobby only after `lobby:join`, not merely because their socket authenticated. `lobby:onlineUsers` is one row per `userId`; extra tabs are extra socket ids on that row. The last lobby socket to leave or disconnect removes the user.
+
+**Usernames come from Mongo on join**, not from the client. Later tabs reuse the cached username. A deleted user gets an `error` event and is not listed.
+
+**Busy / in-progress PvP is deferred to W2-F03.** This payload stays `{ userId, username }`. Challenge buttons are visible but disabled until the challenge handshake exists.
+
+**Multi-instance presence would need Redis.** One Render instance is the Week 2 assumption; the map is not shared across processes.
+
+### W2-F01 — Realtime infrastructure
+
+**Socket.io on the same HTTP server as Express** instead of a second process or port. One Render web service already terminates TLS and proxies WebSocket upgrades; a single instance does not need sticky sessions or a Redis adapter.
+
+**Room-per-game is the architecture direction.** Each live game will be a Socket.io room (exactly two players in Week 2; spectators join the same room later). Handlers will emit to the room, not to every connected socket. Lobby and challenge features stay out of this bootstrap; `registerLobbyHandlers(io)` is the plug-in point.
+
+**Rejected:** REST polling (higher latency, worse turn UX) and SSE (one-way, so it cannot carry client moves). Multi-instance scaling with Redis is future work only.
+
+**Handshake auth is the access JWT** (`auth: { token }`), verified with the same `verifyAccessToken` used by REST. `socket.data.userId` is set only after verification. Missing or invalid tokens are rejected before `connection`. Multiple sockets per user are allowed; presence dedupe is W2-F02.
+
+**Client reconnects with Socket.io defaults, then refreshes the access token only on auth failures.** Network blips use the built-in reconnect. `Authentication required` / `Invalid or expired token` stop the retry, call the existing silent `POST /api/auth/refresh` helper, and connect again with the new token. If refresh fails or returns the same rejected token, the client records “Realtime disconnected” and does not loop. Server `error` events `{ message }` land in a realtime store for later toasts; no indicator UI in this feature.
+
 ## Week 1
 
 ### W1-F07 — User profile and stats

@@ -89,10 +89,32 @@ export const MeResponseSchema = z.object({
   username: z.string(),
   email: z.string().email(),
   stats: UserStatsSchema,
+  rating: z.number().int(),
   createdAt: z.string(),
 });
 
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+export const LeaderboardQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export type LeaderboardQuery = z.infer<typeof LeaderboardQuerySchema>;
+
+export const LeaderboardItemSchema = z.object({
+  userId: z.string().min(1),
+  username: z.string().min(1),
+  rating: z.number().int(),
+  stats: UserStatsSchema,
+});
+
+export type LeaderboardItem = z.infer<typeof LeaderboardItemSchema>;
+
+export const LeaderboardResponseSchema = z.object({
+  items: z.array(LeaderboardItemSchema),
+});
+
+export type LeaderboardResponse = z.infer<typeof LeaderboardResponseSchema>;
 
 export const AiDifficultySchema = z.union([
   z.literal(1),
@@ -142,38 +164,61 @@ export type GamePlayer = z.infer<typeof GamePlayerSchema>;
 export const LastMoveSchema = z.object({
   from: z.string(),
   to: z.string(),
+  promotion: z.enum(["q", "r", "b", "n"]).optional(),
 });
 
 export type LastMove = z.infer<typeof LastMoveSchema>;
 
-export const GameViewSchema = z.object({
+const gameViewFields = {
   id: z.string(),
   fen: z.string(),
   moves: z.array(z.string()),
   status: GameStatusSchema,
   result: GameResultSchema,
-  gameType: z.literal("ai"),
-  aiDifficulty: AiDifficultySchema,
   turn: z.enum(["w", "b"]),
   lastMove: LastMoveSchema.nullable(),
   white: GamePlayerSchema,
   black: GamePlayerSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
-});
+};
+
+export const GameViewSchema = z.discriminatedUnion("gameType", [
+  z.object({
+    ...gameViewFields,
+    gameType: z.literal("ai"),
+    aiDifficulty: AiDifficultySchema,
+  }),
+  z.object({
+    ...gameViewFields,
+    gameType: z.literal("pvp"),
+    aiDifficulty: z.null(),
+  }),
+]);
 
 export type GameView = z.infer<typeof GameViewSchema>;
 
-export const GameSummarySchema = z.object({
+const gameSummaryFields = {
   id: z.string(),
   status: GameStatusSchema,
   result: GameResultSchema,
-  gameType: z.literal("ai"),
-  aiDifficulty: AiDifficultySchema,
   moveCount: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
-});
+};
+
+export const GameSummarySchema = z.discriminatedUnion("gameType", [
+  z.object({
+    ...gameSummaryFields,
+    gameType: z.literal("ai"),
+    aiDifficulty: AiDifficultySchema,
+  }),
+  z.object({
+    ...gameSummaryFields,
+    gameType: z.literal("pvp"),
+    aiDifficulty: z.null(),
+  }),
+]);
 
 export type GameSummary = z.infer<typeof GameSummarySchema>;
 
@@ -183,6 +228,51 @@ export const GameHistoryResponseSchema = z.object({
 });
 
 export type GameHistoryResponse = z.infer<typeof GameHistoryResponseSchema>;
+
+export {
+  ChallengeActionSchema,
+  ChallengeDeclinedSchema,
+  ChallengeReceivedSchema,
+  ChallengeSendSchema,
+  ChatMessageSchema,
+  ChatNewMessageSchema,
+  GameEndReasonSchema,
+  GameEndedSchema,
+  GameJoinSchema,
+  GameLastMoveSchema,
+  GameMoveSchema,
+  GameOfferDrawSchema,
+  GameResignSchema,
+  GameRespondDrawSchema,
+  GameStartedSchema,
+  GameStateUpdateSchema,
+  LobbyOnlineUserSchema,
+  LobbyOnlineUsersSchema,
+  SocketErrorPayloadSchema,
+  SocketHandshakeAuthSchema,
+  type ChallengeAction,
+  type ChallengeDeclined,
+  type ChallengeReceived,
+  type ChallengeSend,
+  type ChatMessage,
+  type ChatNewMessage,
+  type ClientToServerEvents,
+  type GameEndReason,
+  type GameEnded,
+  type GameJoin,
+  type GameLastMove,
+  type GameMove,
+  type GameOfferDraw,
+  type GameResign,
+  type GameRespondDraw,
+  type GameStarted,
+  type GameStateUpdate,
+  type LobbyOnlineUser,
+  type LobbyOnlineUsers,
+  type ServerToClientEvents,
+  type SocketErrorPayload,
+  type SocketHandshakeAuth,
+} from "./realtime.js";
 
 export {
   START_FEN,

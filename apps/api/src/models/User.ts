@@ -10,6 +10,15 @@ const userStatsSchema = new Schema(
   { _id: false },
 );
 
+const ratingHistorySchema = new Schema(
+  {
+    rating: { type: Number, required: true },
+    date: { type: Date, required: true },
+    gameId: { type: Schema.Types.ObjectId, ref: "Game", required: true },
+  },
+  { _id: false },
+);
+
 const userSchema = new Schema(
   {
     username: {
@@ -34,9 +43,20 @@ const userSchema = new Schema(
       type: userStatsSchema,
       default: () => ({ wins: 0, losses: 0, draws: 0 }),
     },
+    rating: {
+      type: Number,
+      default: 1200,
+      min: 0,
+    },
+    ratingHistory: {
+      type: [ratingHistorySchema],
+      default: [],
+    },
   },
   { timestamps: { createdAt: true, updatedAt: true } },
 );
+
+userSchema.index({ rating: -1 });
 
 export type UserDocument = InferSchemaType<typeof userSchema> & {
   _id: mongoose.Types.ObjectId;
@@ -67,6 +87,7 @@ export function toMeResponse(user: {
   username: string;
   email: string;
   stats: { wins: number; losses: number; draws: number };
+  rating?: number | null;
   createdAt: Date;
 }): MeResponse {
   return {
@@ -78,6 +99,7 @@ export function toMeResponse(user: {
       losses: user.stats.losses,
       draws: user.stats.draws,
     },
+    rating: user.rating ?? 1200,
     createdAt: user.createdAt.toISOString(),
   };
 }

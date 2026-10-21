@@ -22,6 +22,14 @@ export const gamesRouter = Router();
 
 gamesRouter.use(requireAuth);
 
+function playerId(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "toString" in value) {
+    return String(value);
+  }
+  return "";
+}
+
 async function loadParticipantGame(
   gameId: string,
   userId: string,
@@ -53,7 +61,9 @@ async function loadParticipantGame(
     };
   }
 
-  if (game.whitePlayer.toString() !== userId) {
+  const whiteId = playerId(game.whitePlayer);
+  const blackId = playerId(game.blackPlayer);
+  if (whiteId !== userId && blackId !== userId) {
     return {
       ok: false,
       status: 403,
@@ -65,10 +75,21 @@ async function loadParticipantGame(
   return { ok: true, game };
 }
 
-async function whitePlayerFor(userId: string) {
+async function playerFor(userId: string) {
   const user = await User.findById(userId).lean();
   if (!user) return null;
   return { id: user._id.toString(), username: user.username };
+}
+
+async function playersFor(game: GameDocument) {
+  const white = await playerFor(playerId(game.whitePlayer));
+  if (!white) return null;
+  if (game.gameType === "ai" || game.blackPlayer === "AI") {
+    return { white, black: { id: "AI", username: "AI" } };
+  }
+  const black = await playerFor(playerId(game.blackPlayer));
+  if (!black) return null;
+  return { white, black };
 }
 
 gamesRouter.post("/", asyncHandler(async (req, res) => {
@@ -84,7 +105,7 @@ gamesRouter.post("/", asyncHandler(async (req, res) => {
   }
 
   const { userId } = req as AuthenticatedRequest;
-  const white = await whitePlayerFor(userId);
+  const white = await playerFor(userId);
   if (!white) {
     sendError(res, 401, "UNAUTHORIZED", "User not found");
     return;
@@ -101,7 +122,9 @@ gamesRouter.post("/", asyncHandler(async (req, res) => {
     aiDifficulty: parsed.data.aiDifficulty,
   });
 
-  res.status(201).json(toGameView(game, white));
+  res.status(201).json(
+    toGameView(game, { white, black: { id: "AI", username: "AI" } }),
+  );
 }));
 
 gamesRouter.get("/history", asyncHandler(async (req, res) => {
@@ -124,13 +147,13 @@ gamesRouter.get("/:id", asyncHandler(async (req, res) => {
     return;
   }
 
-  const white = await whitePlayerFor(userId);
-  if (!white) {
+  const players = await playersFor(loaded.game);
+  if (!players) {
     sendError(res, 401, "UNAUTHORIZED", "User not found");
     return;
   }
 
-  res.status(200).json(toGameView(loaded.game, white));
+  res.status(200).json(toGameView(loaded.game, players));
 }));
 
 gamesRouter.patch("/:id/move", asyncHandler(async (req, res) => {
@@ -153,6 +176,10 @@ gamesRouter.patch("/:id/move", asyncHandler(async (req, res) => {
   }
 
   const game = loaded.game;
+  if (game.gameType === "pvp") {
+    sendError(res, 409, "CONFLICT", "Play this game over the live connection");
+    return;
+  }
   if (game.status !== "in_progress") {
     sendError(res, 409, "CONFLICT", "Game is already finished");
     return;
@@ -165,14 +192,9 @@ gamesRouter.patch("/:id/move", asyncHandler(async (req, res) => {
   }
 
   const turn = rebuilt.flags.turn;
-  const isAiBlackTurn =
-    turn === "b" &&
-    game.gameType === "ai" &&
-    game.blackPlayer === "AI";
-
   if (turn === "w") {
     // Human (White) move — allowed.
-  } else if (isAiBlackTurn) {
+  } else if (turn === "b" && game.blackPlayer === "AI") {
     // Client proposes Stockfish UCI for AI; still validated below.
   } else {
     sendError(res, 409, "OUT_OF_TURN", "It is not your turn");
@@ -202,13 +224,13 @@ gamesRouter.patch("/:id/move", asyncHandler(async (req, res) => {
     await completeGame(game, "draw");
   }
 
-  const white = await whitePlayerFor(userId);
-  if (!white) {
+  const players = await playersFor(game);
+  if (!players) {
     sendError(res, 401, "UNAUTHORIZED", "User not found");
     return;
   }
 
-  res.status(200).json(toGameView(game, white));
+  res.status(200).json(toGameView(game, players));
 }));
 
 gamesRouter.patch("/:id/resign", asyncHandler(async (req, res) => {
@@ -220,6 +242,10 @@ gamesRouter.patch("/:id/resign", asyncHandler(async (req, res) => {
   }
 
   const game = loaded.game;
+  if (game.gameType === "pvp") {
+    sendError(res, 409, "CONFLICT", "Resign from the live game");
+    return;
+  }
   if (game.status !== "in_progress") {
     sendError(res, 409, "CONFLICT", "Game is already finished");
     return;
@@ -227,11 +253,11 @@ gamesRouter.patch("/:id/resign", asyncHandler(async (req, res) => {
 
   await completeGame(game, "black");
 
-  const white = await whitePlayerFor(userId);
-  if (!white) {
+  const players = await playersFor(game);
+  if (!players) {
     sendError(res, 401, "UNAUTHORIZED", "User not found");
     return;
   }
 
-  res.status(200).json(toGameView(game, white));
+  res.status(200).json(toGameView(game, players));
 }));

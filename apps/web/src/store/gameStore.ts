@@ -4,12 +4,17 @@ import {
   stateFromSans,
   toUci,
   type AiDifficulty,
+  type GameEndReason,
+  type GameEnded,
+  type GameStateUpdate,
   type GameView,
   type LegalMoveTarget,
   type Side,
 } from "@chessarena/shared";
 import { create } from "zustand";
 import { ApiRequestError, apiFetch } from "../lib/api";
+import { getRealtimeSocket } from "../lib/socket";
+import { useAuthStore } from "./authStore";
 
 export type PendingPromotion = {
   from: string;
@@ -36,24 +41,43 @@ type GameUiState = {
   isGameOver: boolean;
   status: "in_progress" | "completed" | "abandoned" | null;
   result: "white" | "black" | "draw" | null;
+  gameType: "ai" | "pvp" | null;
+  myColor: Side;
+  whiteName: string;
+  blackName: string;
   aiDifficulty: AiDifficulty | null;
   loadStatus: LoadStatus;
   loadError: string | null;
   moving: boolean;
   aiThinking: boolean;
   aiError: string | null;
+  drawOfferedBy: string | null;
+  endReason: GameEndReason | null;
+  moveError: string | null;
   applyGameView: (view: GameView) => void;
+  applyRealtimeState: (update: GameStateUpdate) => void;
+  applyGameEnded: (ended: GameEnded) => void;
+  rejectPendingMove: (message: string) => void;
   loadGame: (gameId: string) => Promise<void>;
   selectSquare: (square: string | null) => void;
   attemptMove: (from: string, to: string, promotion?: string) => Promise<boolean>;
   completePromotion: (piece: "q" | "r" | "b" | "n") => Promise<boolean>;
   cancelPromotion: () => void;
   resign: () => Promise<boolean>;
+  offerDraw: () => boolean;
+  respondDraw: (accept: boolean) => boolean;
   createGame: (aiDifficulty: AiDifficulty) => Promise<GameView | null>;
   submitUci: (move: string) => Promise<boolean>;
   setAiThinking: (thinking: boolean) => void;
   setAiError: (error: string | null) => void;
 };
+
+function myColorFromView(view: GameView): Side {
+  if (view.gameType !== "pvp") return "w";
+  const userId = useAuthStore.getState().user?.id;
+  if (userId && view.black.id === userId) return "b";
+  return "w";
+}
 
 function clearSelection() {
   return {
@@ -62,7 +86,31 @@ function clearSelection() {
   };
 }
 
-function flagsFromView(view: GameView) {
+type PositionSource = {
+  moves: string[];
+  fen: string;
+  turn: Side;
+  status: "in_progress" | "completed" | "abandoned";
+  result: "white" | "black" | "draw" | null;
+};
+
+type PendingMove = {
+  gameId: string;
+  resolve: (ok: boolean) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+let pendingMove: PendingMove | null = null;
+
+function settlePendingMove(ok: boolean): void {
+  const pending = pendingMove;
+  if (!pending) return;
+  pendingMove = null;
+  clearTimeout(pending.timer);
+  pending.resolve(ok);
+}
+
+function flagsFromPosition(view: PositionSource) {
   const rebuilt = stateFromSans(view.moves);
   if (!rebuilt.ok) {
     return {
@@ -118,12 +166,19 @@ export const useGameStore = create<GameUiState>((set, get) => ({
   isGameOver: false,
   status: null,
   result: null,
+  gameType: null,
+  myColor: "w",
+  whiteName: "White",
+  blackName: "Black",
   aiDifficulty: null,
   loadStatus: "idle",
   loadError: null,
   moving: false,
   aiThinking: false,
   aiError: null,
+  drawOfferedBy: null,
+  endReason: null,
+  moveError: null,
 
   applyGameView: (view) => {
     set({
@@ -132,21 +187,87 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       lastMove: view.lastMove,
       status: view.status,
       result: view.result,
+      gameType: view.gameType,
+      myColor: myColorFromView(view),
+      whiteName: view.white.username,
+      blackName: view.black.username,
       aiDifficulty: view.aiDifficulty,
       pendingPromotion: null,
       loadStatus: "ready",
       loadError: null,
       aiError: null,
+      drawOfferedBy: null,
+      endReason: null,
+      moveError: null,
       ...clearSelection(),
-      ...flagsFromView(view),
+      ...flagsFromPosition(view),
     });
   },
 
+  applyRealtimeState: (update) => {
+    const state = get();
+    if (state.gameId && state.gameId !== update.gameId) return;
+    if (pendingMove?.gameId === update.gameId) {
+      settlePendingMove(true);
+    }
+    set({
+      gameId: update.gameId,
+      moves: update.moves,
+      lastMove: update.lastMove,
+      status: update.status,
+      result: update.result,
+      gameType: "pvp",
+      drawOfferedBy: update.drawOfferedBy,
+      pendingPromotion: null,
+      loadStatus: "ready",
+      loadError: null,
+      moving: false,
+      moveError: null,
+      endReason: update.status === "in_progress" ? null : state.endReason,
+      ...clearSelection(),
+      ...flagsFromPosition(update),
+    });
+  },
+
+  applyGameEnded: (ended) => {
+    const state = get();
+    if (state.gameId && state.gameId !== ended.gameId) return;
+    if (pendingMove?.gameId === ended.gameId) {
+      settlePendingMove(true);
+    }
+    set({
+      status: "completed",
+      result: ended.result,
+      endReason: ended.reason,
+      isGameOver: true,
+      moving: false,
+      moveError: null,
+      pendingPromotion: null,
+      ...clearSelection(),
+    });
+  },
+
+  rejectPendingMove: (message) => {
+    if (pendingMove || get().moving) {
+      settlePendingMove(false);
+      set({
+        moving: false,
+        moveError: message,
+        ...clearSelection(),
+      });
+      return;
+    }
+    set({ moveError: message });
+  },
+
   loadGame: async (gameId) => {
+    settlePendingMove(false);
     set({
       loadStatus: "loading",
       loadError: null,
       gameId,
+      moving: false,
+      moveError: null,
       pendingPromotion: null,
       ...clearSelection(),
     });
@@ -167,9 +288,10 @@ export const useGameStore = create<GameUiState>((set, get) => ({
     if (
       state.pendingPromotion ||
       state.isGameOver ||
-      state.turn !== "w" ||
+      state.turn !== state.myColor ||
       state.status !== "in_progress" ||
-      state.moving
+      state.moving ||
+      (state.gameType === "pvp" && !getRealtimeSocket()?.connected)
     ) {
       set(clearSelection());
       return;
@@ -192,7 +314,7 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       { fen: state.fen, uciHistory: state.uciHistory },
       square,
     );
-    if (color !== "w") {
+    if (color !== state.myColor) {
       set(clearSelection());
       return;
     }
@@ -211,7 +333,7 @@ export const useGameStore = create<GameUiState>((set, get) => ({
     if (
       state.isGameOver ||
       state.status !== "in_progress" ||
-      state.turn !== "w" ||
+      state.turn !== state.myColor ||
       !state.gameId ||
       state.moving
     ) {
@@ -227,11 +349,45 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       return false;
     }
 
+    const uci = toUci(from, to, promotion);
+    if (state.gameType === "pvp") {
+      const client = getRealtimeSocket();
+      if (!client?.connected) {
+        set({
+          moving: false,
+          moveError: "Realtime disconnected",
+          ...clearSelection(),
+        });
+        return false;
+      }
+
+      set({
+        moving: true,
+        moveError: null,
+        ...clearSelection(),
+        pendingPromotion: null,
+      });
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          if (pendingMove?.resolve !== resolve) return;
+          pendingMove = null;
+          set({
+            moving: false,
+            moveError: "Move was not confirmed",
+            ...clearSelection(),
+          });
+          resolve(false);
+        }, 8000);
+        pendingMove = { gameId: state.gameId!, resolve, timer };
+        client.emit("game:move", { gameId: state.gameId!, move: uci });
+      });
+    }
+
     set({ moving: true, ...clearSelection(), pendingPromotion: null });
     try {
       const view = await apiFetch<GameView>(`/api/games/${state.gameId}/move`, {
         method: "PATCH",
-        body: { move: toUci(from, to, promotion) },
+        body: { move: uci },
       });
       get().applyGameView(view);
       set({ moving: false });
@@ -255,6 +411,16 @@ export const useGameStore = create<GameUiState>((set, get) => ({
   resign: async () => {
     const state = get();
     if (!state.gameId || state.status !== "in_progress") return false;
+    if (state.gameType === "pvp") {
+      const client = getRealtimeSocket();
+      if (!client?.connected) {
+        set({ moveError: "Realtime disconnected" });
+        return false;
+      }
+      set({ moveError: null });
+      client.emit("game:resign", { gameId: state.gameId });
+      return true;
+    }
     try {
       const view = await apiFetch<GameView>(
         `/api/games/${state.gameId}/resign`,
@@ -262,9 +428,42 @@ export const useGameStore = create<GameUiState>((set, get) => ({
       );
       get().applyGameView(view);
       return true;
-    } catch {
+    } catch (err) {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Could not resign";
+      set({ moveError: message });
       return false;
     }
+  },
+
+  offerDraw: () => {
+    const state = get();
+    if (!state.gameId || state.gameType !== "pvp" || state.status !== "in_progress") {
+      return false;
+    }
+    const client = getRealtimeSocket();
+    if (!client?.connected) {
+      set({ moveError: "Realtime disconnected" });
+      return false;
+    }
+    set({ moveError: null });
+    client.emit("game:offerDraw", { gameId: state.gameId });
+    return true;
+  },
+
+  respondDraw: (accept) => {
+    const state = get();
+    if (!state.gameId || state.gameType !== "pvp" || state.status !== "in_progress") {
+      return false;
+    }
+    const client = getRealtimeSocket();
+    if (!client?.connected) {
+      set({ moveError: "Realtime disconnected" });
+      return false;
+    }
+    set({ moveError: null });
+    client.emit("game:respondDraw", { gameId: state.gameId, accept });
+    return true;
   },
 
   createGame: async (aiDifficulty) => {

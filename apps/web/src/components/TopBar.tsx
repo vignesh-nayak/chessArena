@@ -13,12 +13,20 @@ export function TopBar() {
         ChessArena
       </Link>
       {user ? (
-        <Link
-          to="/profile"
-          className="text-sm text-muted hover:text-accent"
-        >
-          {user.username}
-        </Link>
+        <nav className="flex items-center gap-4">
+          <Link
+            to="/leaderboard"
+            className="text-sm text-muted hover:text-accent"
+          >
+            Leaderboard
+          </Link>
+          <Link
+            to="/profile"
+            className="text-sm text-muted hover:text-accent"
+          >
+            {user.username}
+          </Link>
+        </nav>
       ) : (
         <span className="text-sm text-muted">—</span>
       )}

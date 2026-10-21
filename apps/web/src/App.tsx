@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SocketProvider } from "./components/SocketProvider";
 import { bootstrapSession } from "./lib/api";
+import { useGameStartedNavigation } from "./hooks/useGameStartedNavigation";
 import { GamePage } from "./pages/GamePage";
 import { HomePage } from "./pages/HomePage";
+import { LobbyPage } from "./pages/LobbyPage";
+import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SignupPage } from "./pages/SignupPage";
@@ -15,11 +19,13 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<StatusPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
+    <SocketProvider>
+      <BrowserRouter>
+        <GameStartedListener />
+        <Routes>
+          <Route path="/" element={<StatusPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
         <Route
           path="/home"
           element={
@@ -29,23 +35,45 @@ export default function App() {
           }
         />
         <Route
-          path="/profile"
+          path="/lobby"
           element={
             <ProtectedRoute>
-              <ProfilePage />
+              <LobbyPage />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/game/:id"
+          path="/leaderboard"
           element={
             <ProtectedRoute>
-              <GamePage />
+              <LeaderboardPage />
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/game/:id"
+            element={
+              <ProtectedRoute>
+                <GamePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </SocketProvider>
   );
+}
+
+function GameStartedListener() {
+  useGameStartedNavigation();
+  return null;
 }

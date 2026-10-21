@@ -47,6 +47,15 @@ const gameSchema = new Schema(
       enum: [1, 2, 3],
       default: null,
     },
+    socketRoomId: {
+      type: String,
+      default: null,
+    },
+    drawOfferedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
