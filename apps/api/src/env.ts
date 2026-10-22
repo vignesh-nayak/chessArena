@@ -30,6 +30,11 @@ if (corsOrigins.length === 0) {
   process.exit(1);
 }
 
+if (corsOrigins.some((origin) => origin === "*")) {
+  console.error("[api] CORS_ORIGIN must not be *");
+  process.exit(1);
+}
+
 export const env = {
   mongodbUri: requireEnv("MONGODB_URI"),
   corsOrigin: corsOrigins.join(","),

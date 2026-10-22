@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { GameHistoryResponse, MeResponse } from "@chessarena/shared";
+import { EmptyState } from "../components/EmptyState";
+import { LoadingPulse } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch } from "../lib/api";
 import {
@@ -57,7 +59,7 @@ export function ProfilePage() {
 
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-10">
         {loading ? (
-          <p className="text-center text-sm text-muted">Loading profile…</p>
+          <LoadingPulse lines={5} className="space-y-3" />
         ) : loadError ? (
           <p className="text-center text-sm text-red-400" role="alert">
             {loadError}
@@ -70,6 +72,9 @@ export function ProfilePage() {
               </p>
               <h1 className="text-2xl font-medium text-text">{me.username}</h1>
               <p className="mt-2 text-sm text-muted">Rating {me.rating}</p>
+              <p className="mt-1 text-sm text-muted">
+                Puzzle rating {me.puzzleRating} · {me.puzzlesSolved} solved
+              </p>
               <p className="mt-1 text-sm text-muted">{me.email}</p>
             </div>
 
@@ -111,16 +116,14 @@ export function ProfilePage() {
                   History
                 </Link>
               </div>
-              {!history ? (
-                <p className="text-sm text-muted">Loading…</p>
-              ) : history.items.length === 0 ? (
-                <p className="text-sm text-muted">
+              {history && history.items.length === 0 ? (
+                <EmptyState>
                   No games yet —{" "}
                   <Link className="text-accent hover:underline" to="/home">
                     play vs AI
                   </Link>
-                </p>
-              ) : (
+                </EmptyState>
+              ) : history ? (
                 <ul className="space-y-2 text-left text-sm">
                   {history.items.slice(0, 10).map((g) => (
                     <li key={g.id}>
@@ -135,7 +138,7 @@ export function ProfilePage() {
                     </li>
                   ))}
                 </ul>
-              )}
+              ) : null}
             </section>
 
             <div className="mt-10 text-center">

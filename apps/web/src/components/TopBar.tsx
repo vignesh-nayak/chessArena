@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ThemeToggle } from "./ThemeToggle";
 import { useAuthStore } from "../store/authStore";
 
 export function TopBar() {
@@ -6,7 +7,7 @@ export function TopBar() {
   const rating = useAuthStore((s) => s.rating);
 
   return (
-    <header className="flex items-center justify-between px-4 py-3">
+    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
       <Link
         to="/home"
         className="text-sm tracking-wide text-muted uppercase hover:text-accent"
@@ -14,7 +15,10 @@ export function TopBar() {
         ChessArena
       </Link>
       {user ? (
-        <nav className="flex items-center gap-4">
+        <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+          <Link to="/puzzles" className="text-sm text-muted hover:text-accent">
+            Puzzles
+          </Link>
           <Link
             to="/history"
             className="text-sm text-muted hover:text-accent"
@@ -34,9 +38,10 @@ export function TopBar() {
             <span>{user.username}</span>
             {rating != null ? <span>{rating}</span> : null}
           </Link>
+          <ThemeToggle />
         </nav>
       ) : (
-        <span className="text-sm text-muted">—</span>
+        <ThemeToggle />
       )}
     </header>
   );

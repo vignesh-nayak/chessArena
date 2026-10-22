@@ -5,7 +5,9 @@ import type {
   GameHistoryResponse,
   GameView,
 } from "@chessarena/shared";
+import { EmptyState } from "../components/EmptyState";
 import { FindMatchButton } from "../components/FindMatchButton";
+import { LoadingPulse } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch } from "../lib/api";
 import {
@@ -113,6 +115,18 @@ export function HomePage() {
 
         <section className="mt-10 space-y-4">
           <p className="text-sm tracking-wide text-muted uppercase">
+            Daily puzzle
+          </p>
+          <Link
+            className="inline-block text-sm text-accent hover:underline"
+            to="/puzzles"
+          >
+            Solve today's puzzle
+          </Link>
+        </section>
+
+        <section className="mt-10 space-y-4">
+          <p className="text-sm tracking-wide text-muted uppercase">
             Play vs AI
           </p>
           <div className="flex flex-wrap gap-2">
@@ -123,7 +137,7 @@ export function HomePage() {
                 onClick={() => setDifficulty(d.value)}
                 className={
                   difficulty === d.value
-                    ? "bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+                    ? "bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
                     : "border border-muted/40 px-3 py-1.5 text-sm text-muted"
                 }
               >
@@ -133,7 +147,7 @@ export function HomePage() {
           </div>
           <button
             type="button"
-            className="w-full bg-accent px-4 py-2 text-sm font-medium text-bg disabled:opacity-60"
+            className="w-full bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-60"
             disabled={starting}
             onClick={() => void onPlay()}
           >
@@ -158,11 +172,11 @@ export function HomePage() {
           {historyError ? (
             <p className="text-sm text-muted">{historyError}</p>
           ) : null}
-          {!history ? (
-            <p className="text-sm text-muted">Loading…</p>
-          ) : history.items.length === 0 ? (
-            <p className="text-sm text-muted">No games yet — play vs AI</p>
-          ) : (
+          {!history && !historyError ? (
+            <LoadingPulse lines={4} />
+          ) : history && history.items.length === 0 ? (
+            <EmptyState>No games yet — play vs AI</EmptyState>
+          ) : history ? (
             <ul className="space-y-2 text-left text-sm">
               {history.items.slice(0, 10).map((g) => (
                 <li key={g.id}>
@@ -177,7 +191,7 @@ export function HomePage() {
                 </li>
               ))}
             </ul>
-          )}
+          ) : null}
         </section>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">

@@ -1,15 +1,12 @@
-import type { HealthResponse } from "@chessarena/shared";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import express from "express";
 import { createServer } from "node:http";
 import mongoose from "mongoose";
+import { createApp } from "./app.js";
 import { env } from "./env.js";
 import { createGame } from "./lib/chessRules.js";
-import { authRouter } from "./routes/auth.js";
-import { gamesRouter } from "./routes/games.js";
-import { leaderboardRouter } from "./routes/leaderboard.js";
-import { usersRouter } from "./routes/users.js";
+import "./models/Game.js";
+import "./models/Puzzle.js";
+import "./models/PuzzleAttempt.js";
+import "./models/User.js";
 import { armPersistedClocks } from "./socket/clocks.js";
 import { initSocket } from "./socket/index.js";
 
@@ -19,6 +16,14 @@ async function connectMongo(uri: string): Promise<void> {
       serverSelectionTimeoutMS: 10000,
     });
     console.log("[api] MongoDB connected");
+    try {
+      await mongoose.connection.syncIndexes();
+      console.log("[api] MongoDB indexes synced");
+    } catch (indexErr) {
+      const indexMessage =
+        indexErr instanceof Error ? indexErr.message : String(indexErr);
+      console.error(`[api] MongoDB index sync failed: ${indexMessage}`);
+    }
     await armPersistedClocks();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -27,10 +32,6 @@ async function connectMongo(uri: string): Promise<void> {
     );
     setTimeout(() => void connectMongo(uri), 5000);
   }
-}
-
-function mongoStatus(): HealthResponse["mongo"] {
-  return mongoose.connection.readyState === 1 ? "up" : "down";
 }
 
 async function main(): Promise<void> {
@@ -42,45 +43,10 @@ async function main(): Promise<void> {
 
   await connectMongo(env.mongodbUri);
 
-  const app = express();
-  app.use(
-    cors({
-      origin: env.corsOrigins,
-      credentials: true,
-    }),
-  );
-  app.use(express.json());
-  app.use(cookieParser());
-
-  app.get("/api/health", (_req, res) => {
-    const body: HealthResponse = {
-      ok: true,
-      mongo: mongoStatus(),
-    };
-    res.status(200).json(body);
-  });
-
-  app.use("/api/auth", authRouter);
-  app.use("/api/users", usersRouter);
-  app.use("/api/games", gamesRouter);
-  app.use("/api/leaderboard", leaderboardRouter);
-
-  app.use(
-    (
-      err: unknown,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction,
-    ) => {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[api] Unhandled route error: ${message}`);
-      if (!res.headersSent) {
-        res.status(500).json({
-          error: { code: "INTERNAL", message: "Internal server error" },
-        });
-      }
-    },
-  );
+  const app = createApp();
+  if (env.isProduction) {
+    app.set("trust proxy", 1);
+  }
 
   const httpServer = createServer(app);
   initSocket(httpServer);

@@ -1,5 +1,9 @@
 import type { ServerToClientEvents } from "@chessarena/shared";
-import { START_FEN } from "@chessarena/shared";
+import {
+  ChallengeActionSchema,
+  ChallengeSendSchema,
+  START_FEN,
+} from "@chessarena/shared";
 import { hasActivePvp } from "../../lib/activePvp.js";
 import { PVP_INITIAL_MS, PVP_TIME_CONTROL } from "../../lib/clock.js";
 import { Game } from "../../models/Game.js";
@@ -47,17 +51,12 @@ function notifyCancelled(io: AppServer, challenge: PendingChallenge): void {
 }
 
 async function handleSend(io: AppServer, socket: AppSocket, payload: unknown) {
-  const toUserId =
-    typeof payload === "object" &&
-    payload !== null &&
-    "toUserId" in payload &&
-    typeof (payload as { toUserId?: unknown }).toUserId === "string"
-      ? (payload as { toUserId: string }).toUserId
-      : "";
-  if (!toUserId) {
+  const parsed = ChallengeSendSchema.safeParse(payload);
+  if (!parsed.success) {
     emitSocketError(socket, "Invalid challenge");
     return;
   }
+  const { toUserId } = parsed.data;
 
   const fromUserId = socket.data.userId;
   if (toUserId === fromUserId) {
@@ -117,17 +116,12 @@ async function handleSend(io: AppServer, socket: AppSocket, payload: unknown) {
 }
 
 function handleDecline(io: AppServer, socket: AppSocket, payload: unknown): void {
-  const challengeId =
-    typeof payload === "object" &&
-    payload !== null &&
-    "challengeId" in payload &&
-    typeof (payload as { challengeId?: unknown }).challengeId === "string"
-      ? (payload as { challengeId: string }).challengeId
-      : "";
-  if (!challengeId) {
+  const parsed = ChallengeActionSchema.safeParse(payload);
+  if (!parsed.success) {
     emitSocketError(socket, "Invalid challenge");
     return;
   }
+  const { challengeId } = parsed.data;
 
   const declined = declineChallenge(challengeId, socket.data.userId);
   if (!declined) {
@@ -141,17 +135,12 @@ function handleDecline(io: AppServer, socket: AppSocket, payload: unknown): void
 }
 
 async function handleAccept(io: AppServer, socket: AppSocket, payload: unknown) {
-  const challengeId =
-    typeof payload === "object" &&
-    payload !== null &&
-    "challengeId" in payload &&
-    typeof (payload as { challengeId?: unknown }).challengeId === "string"
-      ? (payload as { challengeId: string }).challengeId
-      : "";
-  if (!challengeId) {
+  const parsed = ChallengeActionSchema.safeParse(payload);
+  if (!parsed.success) {
     emitSocketError(socket, "Invalid challenge");
     return;
   }
+  const { challengeId } = parsed.data;
 
   const pending = getPendingChallenge(challengeId);
   if (!pending || pending.toUserId !== socket.data.userId) {

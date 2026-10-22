@@ -5,10 +5,17 @@
   --color-text: #f0f0f0;
   --color-muted: #9b9b9b;
   --color-accent: #81b64c;
+  --color-on-accent: #262421;
   --color-board-light: #f0d9b5;
   --color-board-dark: #769656;
   --color-last-move: rgba(255, 255, 0, 0.35);
   --color-check: rgba(235, 70, 70, 0.72);
+}
+
+[data-theme="light"] {
+  --color-bg: #f0f0f0;
+  --color-text: #262421;
+  --color-muted: #5c5c5c;
 }
 
 html,

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { LiveGame } from "@chessarena/shared";
+import { EmptyState } from "../components/EmptyState";
 import { FindMatchButton } from "../components/FindMatchButton";
+import { LoadingPulse } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { useLobbyChallenges } from "../hooks/useLobbyChallenges";
 import { useLobbyPresence } from "../hooks/useLobbyPresence";
@@ -21,6 +23,7 @@ export function LobbyPage() {
   const status = useRealtimeStore((s) => s.status);
   const lastErrorMessage = useRealtimeStore((s) => s.lastErrorMessage);
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
+  const [liveLoading, setLiveLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +33,8 @@ export function LobbyPage() {
         if (!cancelled) setLiveGames(data.items);
       } catch {
         if (!cancelled) setLiveGames([]);
+      } finally {
+        if (!cancelled) setLiveLoading(false);
       }
     }
     void loadLive();
@@ -67,7 +72,7 @@ export function LobbyPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+                className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
                 onClick={() => acceptChallenge(incoming.challengeId)}
               >
                 Accept
@@ -87,8 +92,10 @@ export function LobbyPage() {
           <p className="text-sm tracking-wide text-muted uppercase">
             Live games
           </p>
-          {liveGames.length === 0 ? (
-            <p className="text-sm text-muted">No live games</p>
+          {liveLoading ? (
+            <LoadingPulse lines={3} />
+          ) : liveGames.length === 0 ? (
+            <EmptyState>No live games</EmptyState>
           ) : (
             <ul className="space-y-2 text-left text-sm">
               {liveGames.map((game) => {
@@ -125,7 +132,7 @@ export function LobbyPage() {
             </p>
           ) : null}
           {onlineUsers.length === 0 ? (
-            <p className="text-sm text-muted">No players online</p>
+            <EmptyState>No players online</EmptyState>
           ) : (
             <ul className="space-y-2 text-left text-sm">
               {onlineUsers.map((user) => {

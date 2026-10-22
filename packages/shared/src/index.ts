@@ -90,10 +90,70 @@ export const MeResponseSchema = z.object({
   email: z.string().email(),
   stats: UserStatsSchema,
   rating: z.number().int(),
+  puzzleRating: z.number().int(),
+  puzzlesSolved: z.number().int().nonnegative(),
   createdAt: z.string(),
 });
 
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+export const DailyPuzzleSchema = z.object({
+  id: z.string(),
+  fen: z.string(),
+  rating: z.number().int(),
+  theme: z.string(),
+  sideToMove: z.enum(["w", "b"]),
+  alreadySolved: z.boolean(),
+  puzzleRating: z.number().int(),
+  puzzlesSolved: z.number().int().nonnegative(),
+  sourceUrl: z.string().url().nullable(),
+});
+
+export type DailyPuzzle = z.infer<typeof DailyPuzzleSchema>;
+
+export const PuzzleAttemptBodySchema = z.object({
+  moves: z.array(z.string().trim().min(1)).min(1),
+});
+
+export type PuzzleAttemptBody = z.infer<typeof PuzzleAttemptBodySchema>;
+
+export const PuzzleReplySchema = z.object({
+  san: z.string(),
+  from: z.string(),
+  to: z.string(),
+  promotion: z.string().optional(),
+});
+
+export type PuzzleReply = z.infer<typeof PuzzleReplySchema>;
+
+export const PuzzleAttemptResponseSchema = z.object({
+  correct: z.boolean(),
+  status: z.enum(["solved", "continue", "incorrect"]),
+  reply: PuzzleReplySchema.nullable(),
+  fen: z.string().nullable(),
+  alreadySolved: z.boolean(),
+  puzzleRating: z.number().int(),
+  puzzlesSolved: z.number().int().nonnegative(),
+});
+
+export type PuzzleAttemptResponse = z.infer<typeof PuzzleAttemptResponseSchema>;
+
+export const PuzzleHistoryItemSchema = z.object({
+  puzzleId: z.string(),
+  theme: z.string(),
+  rating: z.number().int(),
+  solvedAt: z.string(),
+  puzzleRating: z.number().int(),
+});
+
+export type PuzzleHistoryItem = z.infer<typeof PuzzleHistoryItemSchema>;
+
+export const PuzzleHistoryResponseSchema = z.object({
+  items: z.array(PuzzleHistoryItemSchema),
+  total: z.number().int().nonnegative(),
+});
+
+export type PuzzleHistoryResponse = z.infer<typeof PuzzleHistoryResponseSchema>;
 
 export const LeaderboardQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -326,6 +386,8 @@ export {
   getFlags,
   getLegalMoves,
   getPieceColor,
+  solverBoardOrientation,
+  replaySans,
   stateFromSans,
   tryMove,
   toUci,
@@ -334,6 +396,8 @@ export {
   type GameFlags,
   type GameState,
   type LegalMoveTarget,
+  type ReplayedPly,
+  type ReplaySansResult,
   type Side,
   type StateFromSansResult,
   type TryMoveResult,

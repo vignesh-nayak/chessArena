@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { LeaderboardResponse } from "@chessarena/shared";
+import { EmptyState } from "../components/EmptyState";
+import { LoadingPulse } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch, ApiRequestError } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
@@ -48,13 +50,15 @@ export function LeaderboardPage() {
         <p className="mt-2 text-sm text-muted">Top players by rating.</p>
 
         {loading ? (
-          <p className="mt-10 text-sm text-muted">Loading leaderboard…</p>
+          <LoadingPulse lines={6} className="mt-10 space-y-3" />
         ) : loadError ? (
           <p className="mt-10 text-sm text-red-400" role="alert">
             {loadError}
           </p>
         ) : !board || board.items.length === 0 ? (
-          <p className="mt-10 text-sm text-muted">No players yet</p>
+          <div className="mt-10">
+            <EmptyState>No players yet</EmptyState>
+          </div>
         ) : (
           <ol className="mt-10 space-y-2 text-sm">
             {board.items.map((player, index) => {

@@ -23,23 +23,17 @@ leaderboardRouter.get("/", asyncHandler(async (req, res) => {
     return;
   }
 
-  const users = await User.aggregate<{
-    _id: { toString(): string };
-    username: string;
-    boardRating: number;
-    stats?: { wins?: number; losses?: number; draws?: number };
-  }>([
-    { $addFields: { boardRating: { $ifNull: ["$rating", 1200] } } },
-    { $sort: { boardRating: -1, username: 1 } },
-    { $limit: parsed.data.limit },
-    { $project: { username: 1, boardRating: 1, stats: 1 } },
-  ]);
+  const users = await User.find()
+    .sort({ rating: -1, username: 1 })
+    .limit(parsed.data.limit)
+    .select("username rating stats")
+    .lean();
 
   res.status(200).json({
     items: users.map((user) => ({
       userId: user._id.toString(),
       username: user.username,
-      rating: user.boardRating,
+      rating: user.rating ?? 1200,
       stats: {
         wins: user.stats?.wins ?? 0,
         losses: user.stats?.losses ?? 0,

@@ -52,11 +52,21 @@ const userSchema = new Schema(
       type: [ratingHistorySchema],
       default: [],
     },
+    puzzleRating: {
+      type: Number,
+      default: 1200,
+      min: 0,
+    },
+    puzzlesSolved: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: { createdAt: true, updatedAt: true } },
 );
 
-userSchema.index({ rating: -1 });
+userSchema.index({ rating: -1, username: 1 });
 
 export type UserDocument = InferSchemaType<typeof userSchema> & {
   _id: mongoose.Types.ObjectId;
@@ -88,6 +98,8 @@ export function toMeResponse(user: {
   email: string;
   stats: { wins: number; losses: number; draws: number };
   rating?: number | null;
+  puzzleRating?: number | null;
+  puzzlesSolved?: number | null;
   createdAt: Date;
 }): MeResponse {
   return {
@@ -100,6 +112,8 @@ export function toMeResponse(user: {
       draws: user.stats.draws,
     },
     rating: user.rating ?? 1200,
+    puzzleRating: user.puzzleRating ?? 1200,
+    puzzlesSolved: user.puzzlesSolved ?? 0,
     createdAt: user.createdAt.toISOString(),
   };
 }

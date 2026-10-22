@@ -13,7 +13,7 @@
     "build": "npm run build -w @chessarena/shared && npm run build -w @chessarena/api && npm run build -w @chessarena/web",
     "start": "npm run start -w @chessarena/api",
     "typecheck": "npm run typecheck -w @chessarena/shared && npm run typecheck -w @chessarena/api && npm run typecheck -w @chessarena/web",
-    "test": "npm run test -w @chessarena/api"
+    "test": "npm run build -w @chessarena/shared && npm run test -w @chessarena/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

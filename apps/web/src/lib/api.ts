@@ -1,6 +1,7 @@
 import type { ApiError, MeResponse } from "@chessarena/shared";
 import { ApiErrorSchema } from "@chessarena/shared";
 import { useAuthStore } from "../store/authStore";
+import { useToastStore } from "../store/toastStore";
 
 const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(
   /\/$/,
@@ -47,6 +48,8 @@ type RequestOptions = {
   body?: unknown;
   accessToken?: string | null;
   retryOnUnauthorized?: boolean;
+  /** Login, signup, and session bootstrap keep their own copy. */
+  toast?: boolean;
 };
 
 let refreshInFlight: Promise<string | null> | null = null;
@@ -95,6 +98,7 @@ export async function apiFetch<T>(
     body,
     accessToken = useAuthStore.getState().accessToken,
     retryOnUnauthorized = true,
+    toast = true,
   } = options;
 
   const headers: Record<string, string> = {};
@@ -131,6 +135,7 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const err = parseErrorBody(json, `Request failed (${res.status})`);
+    if (toast) useToastStore.getState().push(err.message);
     throw new ApiRequestError(res.status, err.code, err.message);
   }
 
@@ -154,6 +159,7 @@ export async function bootstrapSession(): Promise<void> {
     const me = await apiFetch<MeResponse>("/api/users/me", {
       accessToken,
       retryOnUnauthorized: false,
+      toast: false,
     });
     store.setSession(accessToken, {
       id: me.id,

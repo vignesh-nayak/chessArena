@@ -4,6 +4,7 @@ import {
 } from "@chessarena/shared";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { ApiRequestError, apiFetch, refreshViewerRating } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -54,6 +55,7 @@ export function SignupPage() {
         method: "POST",
         body: parsed.data,
         retryOnUnauthorized: false,
+        toast: false,
       });
       setSession(session.accessToken, session.user);
       try {
@@ -74,7 +76,10 @@ export function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-full items-center justify-center px-6">
+    <main className="relative flex min-h-full items-center justify-center px-6">
+      <div className="absolute top-3 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm">
         <p className="mb-2 text-sm tracking-wide text-muted uppercase">
           ChessArena
@@ -113,7 +118,7 @@ export function SignupPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-accent px-4 py-2 text-sm font-medium text-bg disabled:opacity-60"
+            className="w-full bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-60"
           >
             {submitting ? "Creating account…" : "Create account"}
           </button>

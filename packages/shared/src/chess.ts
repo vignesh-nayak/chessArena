@@ -173,6 +173,52 @@ export function getPieceColor(
   return piece?.color ?? null;
 }
 
+function colorOrientation(side: Side): "white" | "black" {
+  return side === "b" ? "black" : "white";
+}
+
+/**
+ * Orientation that puts the solver's pieces at the bottom.
+ * "white" keeps rank 1 at the bottom; "black" keeps rank 8 there.
+ * Puzzle FENs sometimes place the side to move on the other half of the board.
+ */
+export function solverBoardOrientation(
+  fen: string,
+  side: Side,
+): "white" | "black" {
+  const placement = fen.trim().split(/\s+/)[0] ?? "";
+  const ranks = placement.split("/");
+  if (ranks.length !== 8) return colorOrientation(side);
+
+  let solverRankSum = 0;
+  let solverCount = 0;
+  let opponentRankSum = 0;
+  let opponentCount = 0;
+
+  for (let index = 0; index < ranks.length; index += 1) {
+    const rankNumber = 8 - index;
+    for (const char of ranks[index] ?? "") {
+      if (char >= "1" && char <= "8") continue;
+      if (!/[prnbqk]/i.test(char)) continue;
+      const pieceSide: Side = char === char.toUpperCase() ? "w" : "b";
+      if (pieceSide === side) {
+        solverRankSum += rankNumber;
+        solverCount += 1;
+      } else {
+        opponentRankSum += rankNumber;
+        opponentCount += 1;
+      }
+    }
+  }
+
+  if (solverCount === 0 || opponentCount === 0) return colorOrientation(side);
+
+  const solverAvg = solverRankSum / solverCount;
+  const opponentAvg = opponentRankSum / opponentCount;
+  if (solverAvg === opponentAvg) return colorOrientation(side);
+  return solverAvg < opponentAvg ? "white" : "black";
+}
+
 type ParsedUci = {
   from: string;
   to: string;
@@ -289,5 +335,56 @@ export function stateFromSans(moves: string[]): StateFromSansResult {
     ok: true,
     state: { fen: chess.fen(), uciHistory },
     flags: buildFlags(chess),
+  };
+}
+
+export type ReplayedPly = {
+  san: string;
+  from: string;
+  to: string;
+  promotion?: string;
+};
+
+export type ReplaySansResult =
+  | { ok: true; fen: string; moves: ReplayedPly[]; turn: Side }
+  | { ok: false; reason: "invalid_fen" | "illegal" };
+
+/**
+ * Apply SAN moves starting from `fen`. Returned SAN is chess.js canonical
+ * form, so `Nf3` and `Nf3+` compare equal after a replay.
+ */
+export function replaySans(fen: string, moves: string[]): ReplaySansResult {
+  const chess = loadChess(fen);
+  if (!chess) {
+    return { ok: false, reason: "invalid_fen" };
+  }
+
+  const played: ReplayedPly[] = [];
+  for (const san of moves) {
+    let move;
+    try {
+      move = chess.move(san);
+    } catch {
+      return { ok: false, reason: "illegal" };
+    }
+    if (!move) {
+      return { ok: false, reason: "illegal" };
+    }
+    const ply: ReplayedPly = {
+      san: move.san,
+      from: move.from,
+      to: move.to,
+    };
+    if (move.promotion) {
+      ply.promotion = move.promotion;
+    }
+    played.push(ply);
+  }
+
+  return {
+    ok: true,
+    fen: chess.fen(),
+    moves: played,
+    turn: chess.turn(),
   };
 }

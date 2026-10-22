@@ -6,6 +6,7 @@ import {
 } from "@chessarena/shared";
 import { io, type Socket } from "socket.io-client";
 import { useRealtimeStore } from "../store/realtimeStore";
+import { useToastStore } from "../store/toastStore";
 import { useAuthStore } from "../store/authStore";
 import { getApiBase, refreshAccessToken } from "./api";
 
@@ -52,6 +53,7 @@ async function onConnectError(err: Error): Promise<void> {
     authRetried = false;
     socket.disconnect();
     useRealtimeStore.getState().setHardFailure("Realtime disconnected");
+    useToastStore.getState().push("Realtime disconnected");
     return;
   }
 
@@ -68,6 +70,7 @@ async function onConnectError(err: Error): Promise<void> {
     if (!nextToken || nextToken === failedToken || sessionToken !== nextToken) {
       authRetried = false;
       useRealtimeStore.getState().setHardFailure("Realtime disconnected");
+      useToastStore.getState().push("Realtime disconnected");
       return;
     }
 
@@ -114,6 +117,7 @@ function ensureSocket(): AppClientSocket {
     const parsed = SocketErrorPayloadSchema.safeParse(payload);
     if (!parsed.success) return;
     useRealtimeStore.getState().setError(parsed.data.message);
+    useToastStore.getState().push(parsed.data.message);
   });
 
   return socket;

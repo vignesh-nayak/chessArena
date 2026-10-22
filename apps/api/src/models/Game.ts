@@ -19,7 +19,6 @@ const gameSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     blackPlayer: {
       type: Schema.Types.Mixed,
@@ -80,7 +79,9 @@ const gameSchema = new Schema(
   { timestamps: true },
 );
 
-gameSchema.index({ whitePlayer: 1, createdAt: -1 });
+gameSchema.index({ whitePlayer: 1, updatedAt: -1 });
+gameSchema.index({ blackPlayer: 1, updatedAt: -1 });
+gameSchema.index({ status: 1, updatedAt: -1 });
 
 export type GameDocument = HydratedDocument<
   InferSchemaType<typeof gameSchema> & {

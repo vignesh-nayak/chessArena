@@ -4,6 +4,7 @@ import { START_FEN, stateFromSans, type GameReplay } from "@chessarena/shared";
 import { ChessBoard } from "../components/ChessBoard";
 import { MoveList } from "../components/MoveList";
 import { PlayerBar } from "../components/PlayerBar";
+import { BoardLoading } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch, ApiRequestError } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
@@ -73,21 +74,20 @@ export function ReplayPage() {
   }, [ply, replay]);
 
   if (loading) {
-    return (
-      <main className="flex min-h-full items-center justify-center px-6">
-        <p className="text-muted">Loading replay…</p>
-      </main>
-    );
+    return <BoardLoading />;
   }
 
   if (loadError || !replay || !position) {
     return (
-      <main className="flex min-h-full flex-col items-center justify-center gap-4 px-6">
-        <p className="text-text">{loadError ?? "Could not load replay"}</p>
-        <Link className="text-accent hover:underline" to="/history">
-          Back to history
-        </Link>
-      </main>
+      <div className="flex min-h-full flex-col">
+        <TopBar />
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+          <p className="text-text">{loadError ?? "Could not load replay"}</p>
+          <Link className="text-accent hover:underline" to="/history">
+            Back to history
+          </Link>
+        </main>
+      </div>
     );
   }
 

@@ -2,6 +2,62 @@
 
 Accumulated as ChessArena is built. Newest entries at the top within each week.
 
+## Week 4
+
+### W4-F06 — Documentation and release check
+
+**The README points at the live app.** Web: https://chess-arena-riou.vercel.app. API: https://chessarena-server-uzin.onrender.com. Health returned `{ ok: true, mongo: up }`. The demo steps are written. `docs/demo.gif` is not in the repo yet.
+
+**Production is an older deploy.** A new user signed up, played `1. e4 c6` against the computer, and opened the leaderboard. Two other accounts paired through matchmaking, and the browser spectated that game with both clocks running. The console stayed quiet on signup, the AI game, the status page, and the leaderboard. `GET /api/puzzles/daily` is 404, and `/puzzles` falls through to the status page. Puzzle mode, the theme toggle, and the later index changes are in this repo and not on that Vercel/Render build. That is a deploy gap, not a new feature. Nothing was pushed.
+
+### W4-F05 — Performance
+
+**Indexes follow the queries.** `username` and `email` stay unique. The leaderboard sorts stored `rating` descending, then `username`, on `{ rating: -1, username: 1 }`. A computed `$addFields` sort could not use an index. Display still treats a missing rating as 1200; new users are stored at 1200. History is newest `updatedAt` first, so the player indexes are `{ whitePlayer: 1, updatedAt: -1 }` and `{ blackPlayer: 1, updatedAt: -1 }`, not `createdAt`. Live games use `{ status: 1, updatedAt: -1 }`. Boot calls `syncIndexes()` and keeps serving if that fails.
+
+**The home chunk does not include the board or Stockfish.** Vite’s production build: entry JS 434 kB (132 kB gzip), CSS 12 kB (3.5 kB gzip). Separate chunks: board UI 80 kB (24 kB gzip), game page 21 kB (6.7 kB gzip, including the Stockfish client), puzzle 5.1 kB, lobby 5.0 kB, replay 3.5 kB, leaderboard 1.5 kB, history 1.4 kB. `sf.js` (21 kB) and `sf.wasm` (1.7 MB) are static files. Home does not request them; the worker script loads when an AI game needs a reply. The socket client stays on the home path because matchmaking connects there. No dependency was unused. No Redis.
+
+**A cold Render process is still slow.** The first request after sleep can take a long time. The loading pulse covers that wait. Indexes do not change it.
+
+### W4-F04 — UI polish and dark mode
+
+**The theme follows the OS until the player chooses.** No saved choice means `prefers-color-scheme`. The top-bar control (and the same control on login and signup) writes `chessarena-theme` as `light` or `dark`. After that, the saved choice wins, including when the OS setting changes. An inline script in `index.html` sets `data-theme` before paint.
+
+**Light chrome is a flat gray, not an inverted board.** Page background `#f0f0f0`, text `#262421`, muted `#5c5c5c`. Accent stays `#81b64c`, and accent buttons keep dark text via `--color-on-accent`. The green/cream board is the same in both themes. There is no second board theme.
+
+**Loading, empty, and errors share one pattern.** Game, replay, and puzzle show a board-shaped pulse. Lists use a short pulse. Empty copy is one line for no games, an empty lobby, and no solved puzzles. Socket errors and failed API calls use one dismissible banner. Login, signup, and session bootstrap keep their own messages. A failed game, puzzle, leaderboard, history, or profile load also keeps the inline message.
+
+**Design-spec check.** Board stays the main element; side panels stack under it on a narrow screen. No new cards, shadows, or fonts. Legal-move dots, last-move tint, and the classic board colors are unchanged. Checked at a 390px-wide viewport for home, lobby, game, puzzles, and leaderboard. A physical phone was not available here.
+
+### W4-F03 — Automated testing
+
+**`npm test` is one Jest run.** It builds `@chessarena/shared` first, then the API suite. The old `node:test` files now live in that suite. Jest runs with `--experimental-vm-modules` and `--runInBand`.
+
+**The suite covers critical paths only.** Chess rules (legal move, illegal move, checkmate), ELO (win, draw, loss, and K after 30 games), JWT (round-trip, garbage, a refresh token used as access, and an already-expired access token), signup through `GET /api/users/me`, one AI move (`e2e4` stored as `e4`), and matchmaking as a pure queue pairing. Sockets and the browser are not in this suite. There is no Stockfish process and no coverage target.
+
+**Integration tests use an in-memory MongoDB.** Each API file starts and stops its own `mongodb-memory-server`. Nothing here talks to Atlas. The shared login limiter is cleared for localhost before each HTTP test so the 429 case cannot starve signup.
+
+### W4-F02 — Security hardening
+
+**Login and signup share one in-memory limit of 5 requests per 15 minutes per IP.** The sixth attempt returns `429` with `RATE_LIMITED` and “Too many attempts — try again later.” The counter lives on the API process and resets on restart. One Render instance is the assumption; a second instance would need a shared store.
+
+**Production trusts exactly one proxy hop.** `trust proxy` is `1` only when `NODE_ENV=production`, so Render’s `X-Forwarded-For` is the client IP. Locally the socket address is used, which keeps a client from spoofing the limit by sending that header.
+
+**CORS stays an explicit allowlist.** `CORS_ORIGIN=*` fails at boot. Helmet is on for the usual headers, with CSP and COEP off and `Cross-Origin-Resource-Policy: cross-origin`, so the Vercel app can still read the Render API.
+
+**What this pass did not add.** Refresh-token reuse detection and 2FA are not built. Production cookies stay `httpOnly`, `Secure`, and `SameSite=None` because the web and API are different sites; CSRF beyond that cookie policy is out of scope. Passwords stay bcrypt cost 12. JWT secrets stay in the environment only. Socket connections still require a valid access token.
+
+### W4-F01 — Puzzle mode
+
+**The solution stays on the server.** `GET /api/puzzles/daily` returns the FEN, theme, and difficulty, not the SAN line. Each of the solver's moves is posted as a prefix. A correct prefix returns only the opponent's next reply and the position after that reply. The puzzle rating changes only when the full line is solved the first time.
+
+**A wrong try does not change `puzzleRating`.** The player can retry from the same position. Failures are not stored, so a refresh starts the position over. A solve is one `PuzzleAttempt` row. The unique `(userId, puzzleId)` index makes a duplicate submit return already-solved instead of a second increment.
+
+**Puzzle rating uses the game ELO helper.** `nextRating(puzzleRating, puzzle.rating, 1, puzzlesSolved)` treats the puzzle as the opponent and the solve as a win. K is 32 until 30 solves, then 16, using `puzzlesSolved` the way game rating uses `ratingHistory` length. Losses are not applied, because a retry would otherwise drain rating.
+
+**The daily puzzle is Lichess’s daily puzzle, one position for everyone.** `GET /api/puzzles/daily` calls `https://lichess.org/api/puzzle/daily` with the `User-Agent` `ChessArena`. The UCI line is converted to SAN on the server and stored under that UTC date. A later request the same day reads the cache. The solution is not sent to the browser. Lichess puzzle data is CC0, and the page links to `https://lichess.org/training/{id}`.
+
+**If Lichess is down, the last cached daily puzzle is served.** With no cache, the day falls back to a hash of the UTC date into the seeded set. `apps/api/src/data/puzzles.json` holds those 60 fallback positions. `npm run seed:puzzles -w @chessarena/api` replays every line with chess.js and refuses to write if any move is illegal. Reseeding does not delete cached Lichess rows.
+
 ## Week 3
 
 ### W3-F06 — Game history and replay

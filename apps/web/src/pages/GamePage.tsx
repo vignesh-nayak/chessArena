@@ -5,6 +5,7 @@ import { ChessBoard } from "../components/ChessBoard";
 import { GameChatPanel } from "../components/GameChatPanel";
 import { MoveList } from "../components/MoveList";
 import { PlayerBar } from "../components/PlayerBar";
+import { BoardLoading } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { useGameRealtimeSync } from "../hooks/useGameRealtimeSync";
 import { levelFor } from "../lib/aiLevels";
@@ -321,21 +322,20 @@ export function GamePage() {
   }
 
   if (loadStatus === "loading" || loadStatus === "idle") {
-    return (
-      <main className="flex min-h-full items-center justify-center px-6">
-        <p className="text-muted">Loading game…</p>
-      </main>
-    );
+    return <BoardLoading />;
   }
 
   if (loadStatus === "error") {
     return (
-      <main className="flex min-h-full flex-col items-center justify-center gap-4 px-6">
-        <p className="text-text">{loadError ?? "Could not load game"}</p>
-        <Link className="text-accent hover:underline" to="/home">
-          Back to home
-        </Link>
-      </main>
+      <div className="flex min-h-full flex-col">
+        <TopBar />
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+          <p className="text-text">{loadError ?? "Could not load game"}</p>
+          <Link className="text-accent hover:underline" to="/home">
+            Back to home
+          </Link>
+        </main>
+      </div>
     );
   }
 
@@ -447,7 +447,7 @@ export function GamePage() {
                   <button
                     key={code}
                     type="button"
-                    className="bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+                    className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
                     onClick={() => void completePromotion(code)}
                   >
                     {label}
@@ -476,7 +476,7 @@ export function GamePage() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  className="bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+                  className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
                   onClick={() => respondDraw(true)}
                 >
                   Accept
@@ -521,7 +521,7 @@ export function GamePage() {
             ) : (
               <button
                 type="button"
-                className="bg-accent px-3 py-1.5 text-sm font-medium text-bg disabled:opacity-60"
+                className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-60"
                 disabled={creating}
                 onClick={() => void onNewGame()}
               >
