@@ -4,6 +4,18 @@ Accumulated as ChessArena is built. Newest entries at the top within each week.
 
 ## Week 4
 
+### Production keep-alive
+
+**The API pings its own public health URL every 12 minutes while the production process is running.** Render sleeps a free web service after 15 minutes with no inbound HTTP request or WebSocket message. An in-process timer only counts when the request comes back through `RENDER_EXTERNAL_URL/api/health`. A failed ping retries once after 30 seconds. Local dev does not ping. The loop cannot wake a process that has already slept, crashed, or been suspended after the workspace uses its 750 free instance hours. One always-on service fits that monthly budget, and the next real request still waits on a cold start in those cases.
+
+### Plain CSS and the phone menu
+
+**The web styles are plain CSS.** Each component and page has its own stylesheet. Theme colors stay in `apps/web/src/index.css` and still follow `data-theme`. `tailwindcss` and `@tailwindcss/vite` are removed. The W4-F04 and W4-F05 notes below are the earlier Tailwind pass.
+
+**A signed-in phone bar is the brand and a menu button.** At 767px and below, Puzzles, History, Leaderboard, the username and rating, and the theme toggle sit in a panel that slides in from the right. A link, Close, the dim area, or Escape closes it. Wider screens keep those links in one row. Logged-out login and signup pages do not use this bar.
+
+**The production web build after that change.** Entry JS 433 kB (132 kB gzip). Shared CSS 12.6 kB (2.5 kB gzip), with route CSS split out: game 2.8 kB, puzzle 1.7 kB, lobby 1.5 kB, replay 1.2 kB, leaderboard 0.9 kB, history 0.7 kB. JS chunks: board UI 80 kB (24 kB gzip), game page 20 kB (6.3 kB gzip), puzzle 4.8 kB (2.0 kB gzip), lobby 4.5 kB (1.6 kB gzip), replay 2.9 kB (1.2 kB gzip), leaderboard 1.4 kB (0.7 kB gzip), history 1.3 kB (0.7 kB gzip). Home still does not load the board or Stockfish.
+
 ### W4-F06 — Documentation and release check
 
 **The README points at the live app.** Web: https://chess-arena-riou.vercel.app. API: https://chessarena-server-uzin.onrender.com. Health returned `{ ok: true, mongo: up }`. The demo steps are written. `docs/demo.gif` is not in the repo yet.

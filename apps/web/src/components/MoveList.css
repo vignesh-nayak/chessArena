@@ -1,0 +1,56 @@
+.move-list {
+  display: flex;
+  max-height: 12rem;
+  min-height: 8rem;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.move-list-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.move-list-body {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 0.875rem;
+  line-height: 1.75rem;
+  color: var(--color-text);
+}
+
+.move-list-empty,
+.move-list-number {
+  color: var(--color-muted);
+}
+
+.move-list-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.move-list-move {
+  text-align: left;
+  color: var(--color-text);
+}
+
+.move-list-move:hover,
+.move-list-move--selected {
+  color: var(--color-accent);
+}
+
+.move-list-move--selected {
+  font-weight: 500;
+}
+
+@media (min-width: 1024px) {
+  .move-list {
+    max-height: none;
+    flex: 1;
+  }
+}

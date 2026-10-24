@@ -7,6 +7,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ApiRequestError, apiFetch, refreshViewerRating } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
+import "./SignupPage.css";
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -23,8 +24,8 @@ export function SignupPage() {
 
   if (bootstrapping) {
     return (
-      <main className="flex min-h-full items-center justify-center px-6">
-        <p className="text-muted">Checking session…</p>
+      <main className="signup-checking">
+        <p className="signup-checking-text">Checking session…</p>
       </main>
     );
   }
@@ -76,16 +77,14 @@ export function SignupPage() {
   }
 
   return (
-    <main className="relative flex min-h-full items-center justify-center px-6">
-      <div className="absolute top-3 right-4">
+    <main className="signup-page">
+      <div className="signup-theme">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-sm">
-        <p className="mb-2 text-sm tracking-wide text-muted uppercase">
-          ChessArena
-        </p>
-        <h1 className="mb-6 text-2xl font-medium text-text">Sign up</h1>
-        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+      <div className="signup-card">
+        <p className="signup-kicker">ChessArena</p>
+        <h1 className="signup-title">Sign up</h1>
+        <form className="signup-form" onSubmit={onSubmit} noValidate>
           <Field
             label="Username"
             type="text"
@@ -111,21 +110,17 @@ export function SignupPage() {
             onChange={setPassword}
           />
           {formError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="signup-error" role="alert">
               {formError}
             </p>
           ) : null}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="signup-submit">
             {submitting ? "Creating account…" : "Create account"}
           </button>
         </form>
-        <p className="mt-6 text-sm text-muted">
+        <p className="signup-switch">
           Already have an account?{" "}
-          <Link className="text-accent hover:underline" to="/login">
+          <Link className="signup-switch-link" to="/login">
             Log in
           </Link>
         </p>
@@ -150,16 +145,16 @@ function Field({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block text-left text-sm">
-      <span className="text-muted">{label}</span>
+    <label className="signup-field">
+      <span className="signup-field-label">{label}</span>
       <input
         type={type}
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full border border-muted/40 bg-transparent px-3 py-2 text-text outline-none focus:border-accent"
+        className="signup-field-input"
       />
-      {error ? <span className="mt-1 block text-red-400">{error}</span> : null}
+      {error ? <span className="signup-field-error">{error}</span> : null}
     </label>
   );
 }

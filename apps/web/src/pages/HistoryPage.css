@@ -1,0 +1,60 @@
+.history-page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.history-main {
+  margin-inline: auto;
+  display: flex;
+  width: 100%;
+  max-width: 32rem;
+  flex: 1;
+  flex-direction: column;
+  padding: 2.5rem 1.5rem;
+}
+
+.history-title {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.history-lead,
+.history-error {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.history-lead {
+  margin-top: 0.5rem;
+  color: var(--color-muted);
+}
+
+.history-error,
+.history-empty,
+.history-list {
+  margin-top: 2.5rem;
+}
+
+.history-error {
+  color: var(--color-danger);
+}
+
+.history-link {
+  color: var(--color-accent);
+}
+
+.history-link:hover {
+  text-decoration: underline;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}

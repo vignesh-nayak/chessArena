@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { createApp } from "./app.js";
 import { env } from "./env.js";
 import { createGame } from "./lib/chessRules.js";
+import { startKeepAlive } from "./lib/keepAlive.js";
 import "./models/Game.js";
 import "./models/Puzzle.js";
 import "./models/PuzzleAttempt.js";
@@ -14,8 +15,9 @@ async function connectMongo(uri: string): Promise<void> {
   try {
     await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 10000,
+      dbName: env.mongodbDbName,
     });
-    console.log("[api] MongoDB connected");
+    console.log(`[api] MongoDB connected to ${mongoose.connection.name}`);
     try {
       await mongoose.connection.syncIndexes();
       console.log("[api] MongoDB indexes synced");
@@ -54,6 +56,9 @@ async function main(): Promise<void> {
   httpServer.listen(env.port, "0.0.0.0", () => {
     console.log(`[api] Listening on http://0.0.0.0:${env.port}`);
     console.log(`[api] CORS origins: ${env.corsOrigin}`);
+    if (env.isProduction) {
+      startKeepAlive({ origin: process.env.RENDER_EXTERNAL_URL });
+    }
   });
 }
 

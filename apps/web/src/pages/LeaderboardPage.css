@@ -1,0 +1,71 @@
+.leaderboard-page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.leaderboard-main {
+  margin-inline: auto;
+  display: flex;
+  width: 100%;
+  max-width: 32rem;
+  flex: 1;
+  flex-direction: column;
+  padding: 2.5rem 1.5rem;
+}
+
+.leaderboard-title {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.leaderboard-lead,
+.leaderboard-error,
+.leaderboard-row,
+.leaderboard-meta {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.leaderboard-lead,
+.leaderboard-meta {
+  color: var(--color-muted);
+}
+
+.leaderboard-lead {
+  margin-top: 0.5rem;
+}
+
+.leaderboard-error,
+.leaderboard-empty,
+.leaderboard-list {
+  margin-top: 2.5rem;
+}
+
+.leaderboard-error {
+  color: var(--color-danger);
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.leaderboard-row--self {
+  border: 1px solid color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+
+.leaderboard-name {
+  color: var(--color-text);
+}

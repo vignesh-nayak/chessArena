@@ -8,6 +8,7 @@ import { BoardLoading } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch, ApiRequestError } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
+import "./ReplayPage.css";
 
 function ratingLabel(rating: number | null): string {
   return rating == null ? "—" : String(rating);
@@ -79,11 +80,11 @@ export function ReplayPage() {
 
   if (loadError || !replay || !position) {
     return (
-      <div className="flex min-h-full flex-col">
+      <div className="replay-page">
         <TopBar />
-        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-          <p className="text-text">{loadError ?? "Could not load replay"}</p>
-          <Link className="text-accent hover:underline" to="/history">
+        <main className="replay-error">
+          <p className="replay-error-text">{loadError ?? "Could not load replay"}</p>
+          <Link className="replay-link" to="/history">
             Back to history
           </Link>
         </main>
@@ -99,11 +100,11 @@ export function ReplayPage() {
   const atEnd = ply === replay.moves.length;
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="replay-page">
       <TopBar />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        <section className="flex w-full flex-col items-center lg:w-auto">
-          <div className="w-full max-w-[min(70vh,100%)]">
+      <div className="replay-layout">
+        <section className="replay-board-column">
+          <div className="replay-player-slot">
             <PlayerBar
               username={top.username}
               ratingLabel={ratingLabel(top.rating)}
@@ -118,7 +119,7 @@ export function ReplayPage() {
             onMove={() => false}
             turn={position.turn}
           />
-          <div className="w-full max-w-[min(70vh,100%)]">
+          <div className="replay-player-slot">
             <PlayerBar
               username={bottom.username}
               ratingLabel={ratingLabel(bottom.rating)}
@@ -127,13 +128,13 @@ export function ReplayPage() {
           </div>
         </section>
 
-        <aside className="flex w-full flex-col gap-4 lg:w-64 lg:shrink-0 lg:self-stretch">
-          <p className="text-sm text-muted">Replay · {resultText(replay)}</p>
-          <div className="flex gap-2">
+        <aside className="replay-side">
+          <p className="replay-status">Replay · {resultText(replay)}</p>
+          <div className="replay-controls">
             <button
               type="button"
               aria-label="Start"
-              className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+              className="replay-control"
               disabled={atStart}
               onClick={() => setPly(0)}
             >
@@ -142,7 +143,7 @@ export function ReplayPage() {
             <button
               type="button"
               aria-label="Previous"
-              className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+              className="replay-control"
               disabled={atStart}
               onClick={() => setPly((current) => Math.max(0, current - 1))}
             >
@@ -151,7 +152,7 @@ export function ReplayPage() {
             <button
               type="button"
               aria-label="Next"
-              className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+              className="replay-control"
               disabled={atEnd}
               onClick={() =>
                 setPly((current) => Math.min(replay.moves.length, current + 1))
@@ -162,7 +163,7 @@ export function ReplayPage() {
             <button
               type="button"
               aria-label="End"
-              className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+              className="replay-control"
               disabled={atEnd}
               onClick={() => setPly(replay.moves.length)}
             >
@@ -174,7 +175,7 @@ export function ReplayPage() {
             currentPly={ply}
             onSelectPly={setPly}
           />
-          <Link className="text-sm text-muted hover:text-accent" to="/history">
+          <Link className="replay-back" to="/history">
             Back to history
           </Link>
         </aside>

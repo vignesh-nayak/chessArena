@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
+import "./ChessBoard.css";
 import { Chessboard } from "react-chessboard";
 import type {
   PieceDropHandlerArgs,
@@ -143,7 +144,7 @@ export function ChessBoard({
   ]);
 
   return (
-    <div className="aspect-square w-full max-w-[min(70vh,100%)]">
+    <div className="chess-board">
       <Chessboard options={options} />
     </div>
   );

@@ -1,0 +1,147 @@
+.puzzle-page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.puzzle-error {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding-inline: 1.5rem;
+}
+
+.puzzle-error-text,
+.puzzle-text,
+.puzzle-line {
+  color: var(--color-text);
+}
+
+.puzzle-layout {
+  margin-inline: auto;
+  display: flex;
+  width: 100%;
+  max-width: 72rem;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 0 1rem 2rem;
+}
+
+.puzzle-board-column {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+.puzzle-player-slot {
+  width: 100%;
+  max-width: min(70vh, 100%);
+}
+
+.puzzle-side {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.puzzle-theme,
+.puzzle-muted,
+.puzzle-banner,
+.puzzle-text,
+.puzzle-line,
+.puzzle-source,
+.puzzle-kicker,
+.puzzle-history-item,
+.puzzle-btn-accent,
+.puzzle-btn-quiet {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.puzzle-theme,
+.puzzle-banner--ok {
+  color: var(--color-accent);
+}
+
+.puzzle-muted,
+.puzzle-banner--muted,
+.puzzle-source,
+.puzzle-kicker,
+.puzzle-history-item,
+.puzzle-btn-quiet {
+  color: var(--color-muted);
+}
+
+.puzzle-source:hover {
+  color: var(--color-accent);
+}
+
+.puzzle-btn-quiet:hover {
+  color: var(--color-text);
+}
+
+.puzzle-kicker {
+  letter-spacing: 0.025em;
+  text-decoration: underline;
+  text-transform: uppercase;
+}
+
+.puzzle-banner--bad {
+  color: var(--color-danger);
+}
+
+.puzzle-promote,
+.puzzle-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.puzzle-history-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.puzzle-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.puzzle-btn-accent,
+.puzzle-btn-quiet {
+  padding: 0.375rem 0.75rem;
+}
+
+.puzzle-btn-accent {
+  background: var(--color-accent);
+  font-weight: 500;
+  color: var(--color-on-accent);
+}
+
+@media (min-width: 1024px) {
+  .puzzle-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2rem;
+  }
+
+  .puzzle-board-column {
+    width: auto;
+  }
+
+  .puzzle-side {
+    width: 16rem;
+    flex-shrink: 0;
+    align-self: stretch;
+  }
+}

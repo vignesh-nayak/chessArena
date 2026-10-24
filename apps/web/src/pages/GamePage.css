@@ -1,0 +1,156 @@
+.game-page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.game-error {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding-inline: 1.5rem;
+}
+
+.game-error-text,
+.game-text {
+  color: var(--color-text);
+}
+
+.game-link {
+  color: var(--color-accent);
+}
+
+.game-link:hover {
+  text-decoration: underline;
+}
+
+.game-layout {
+  margin-inline: auto;
+  display: flex;
+  width: 100%;
+  max-width: 72rem;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 0 1rem 2rem;
+}
+
+.game-board-column {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-player-slot {
+  width: 100%;
+  max-width: min(70vh, 100%);
+}
+
+.game-side {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.game-muted,
+.game-alert,
+.game-text,
+.game-btn-accent,
+.game-btn-ghost,
+.game-btn-quiet {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.game-muted,
+.game-btn-ghost,
+.game-btn-quiet {
+  color: var(--color-muted);
+}
+
+.game-alert {
+  color: var(--color-danger);
+}
+
+.game-promote,
+.game-draw {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.game-draw {
+  border: 1px solid color-mix(in srgb, var(--color-muted) 40%, transparent);
+  padding: 0.75rem;
+}
+
+.game-choices,
+.game-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.game-inline-actions {
+  flex-wrap: nowrap;
+}
+
+.game-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.game-btn-accent,
+.game-btn-ghost,
+.game-btn-quiet {
+  padding: 0.375rem 0.75rem;
+}
+
+.game-btn-accent {
+  background: var(--color-accent);
+  font-weight: 500;
+  color: var(--color-on-accent);
+}
+
+.game-btn-accent:disabled {
+  opacity: 0.6;
+}
+
+.game-btn-ghost {
+  border: 1px solid color-mix(in srgb, var(--color-muted) 40%, transparent);
+}
+
+.game-btn-ghost:disabled {
+  opacity: 0.4;
+}
+
+.game-btn-quiet:hover {
+  color: var(--color-text);
+}
+
+@media (min-width: 1024px) {
+  .game-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2rem;
+  }
+
+  .game-board-column {
+    width: auto;
+  }
+
+  .game-side {
+    width: 16rem;
+    flex-shrink: 0;
+    align-self: stretch;
+  }
+}

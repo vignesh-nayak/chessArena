@@ -5,6 +5,7 @@ import { LoadingPulse } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch, ApiRequestError } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
+import "./LeaderboardPage.css";
 
 export function LeaderboardPage() {
   const selfId = useAuthStore((s) => s.user?.id);
@@ -43,40 +44,36 @@ export function LeaderboardPage() {
   }, []);
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="leaderboard-page">
       <TopBar />
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-10">
-        <h1 className="text-2xl font-medium text-text">Leaderboard</h1>
-        <p className="mt-2 text-sm text-muted">Top players by rating.</p>
+      <main className="leaderboard-main">
+        <h1 className="leaderboard-title">Leaderboard</h1>
+        <p className="leaderboard-lead">Top players by rating.</p>
 
         {loading ? (
-          <LoadingPulse lines={6} className="mt-10 space-y-3" />
+          <LoadingPulse lines={6} className="loading-pulse--offset" />
         ) : loadError ? (
-          <p className="mt-10 text-sm text-red-400" role="alert">
+          <p className="leaderboard-error" role="alert">
             {loadError}
           </p>
         ) : !board || board.items.length === 0 ? (
-          <div className="mt-10">
+          <div className="leaderboard-empty">
             <EmptyState>No players yet</EmptyState>
           </div>
         ) : (
-          <ol className="mt-10 space-y-2 text-sm">
+          <ol className="leaderboard-list">
             {board.items.map((player, index) => {
               const isSelf = player.userId === selfId;
               return (
                 <li
                   key={player.userId}
-                  className={
-                    isSelf
-                      ? "flex items-center justify-between gap-3 border border-accent/60 px-3 py-2"
-                      : "flex items-center justify-between gap-3 px-3 py-2"
-                  }
+                  className={isSelf ? "leaderboard-row leaderboard-row--self" : "leaderboard-row"}
                 >
-                  <span className="text-text">
+                  <span className="leaderboard-name">
                     {index + 1}. {player.username}
                     {isSelf ? " (You)" : ""}
                   </span>
-                  <span className="text-muted">
+                  <span className="leaderboard-meta">
                     {player.rating} · {player.stats.wins}-{player.stats.losses}-
                     {player.stats.draws}
                   </span>

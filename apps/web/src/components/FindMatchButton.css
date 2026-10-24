@@ -1,0 +1,38 @@
+.find-match {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.find-match-status,
+.find-match-error,
+.find-match-cancel,
+.find-match-submit {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.find-match-status {
+  color: var(--color-muted);
+}
+
+.find-match-error {
+  color: var(--color-danger);
+}
+
+.find-match-cancel {
+  border: 1px solid color-mix(in srgb, var(--color-muted) 40%, transparent);
+  padding: 0.375rem 0.75rem;
+  color: var(--color-muted);
+}
+
+.find-match-submit {
+  background: var(--color-accent);
+  padding: 0.375rem 0.75rem;
+  font-weight: 500;
+  color: var(--color-on-accent);
+}
+
+.find-match-submit:disabled {
+  opacity: 0.4;
+}

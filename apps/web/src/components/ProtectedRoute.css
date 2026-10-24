@@ -1,0 +1,11 @@
+.protected-route {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1.5rem;
+}
+
+.protected-route-message {
+  color: var(--color-muted);
+}

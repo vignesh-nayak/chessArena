@@ -1,0 +1,65 @@
+.game-chat {
+  display: flex;
+  max-height: 10rem;
+  flex-direction: column;
+}
+
+.game-chat-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.game-chat-log {
+  margin-bottom: 0.5rem;
+  min-height: 4rem;
+  flex: 1;
+  overflow-y: auto;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  color: var(--color-text);
+}
+
+.game-chat-empty,
+.game-chat-from {
+  color: var(--color-muted);
+}
+
+.game-chat-error {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-danger);
+}
+
+.game-chat-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.game-chat-input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid color-mix(in srgb, var(--color-muted) 40%, transparent);
+  background: transparent;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-text);
+}
+
+.game-chat-send {
+  border: 1px solid color-mix(in srgb, var(--color-muted) 40%, transparent);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-muted);
+}
+
+.game-chat-input:disabled,
+.game-chat-send:disabled {
+  opacity: 0.4;
+}

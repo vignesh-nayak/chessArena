@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getRealtimeSocket } from "../lib/socket";
 import { useMatchmakingStore } from "../store/matchmakingStore";
 import { useRealtimeStore } from "../store/realtimeStore";
+import "./FindMatchButton.css";
 
 const TIME_CONTROL = { initial: 600 as const, increment: 5 as const };
 
@@ -38,24 +39,20 @@ export function FindMatchButton() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="find-match">
       {searching ? (
         <>
-          <p className="text-sm text-muted" role="status">
+          <p className="find-match-status" role="status">
             Searching… {joinedAt ? formatElapsed(joinedAt, now) : "0:00"}
           </p>
-          <button
-            type="button"
-            className="border border-muted/40 px-3 py-1.5 text-sm text-muted"
-            onClick={onCancel}
-          >
+          <button type="button" className="find-match-cancel" onClick={onCancel}>
             Cancel
           </button>
         </>
       ) : (
         <button
           type="button"
-          className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-40"
+          className="find-match-submit"
           disabled={status !== "connected"}
           onClick={onFind}
         >
@@ -63,7 +60,7 @@ export function FindMatchButton() {
         </button>
       )}
       {error ? (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="find-match-error" role="alert">
           {error}
         </p>
       ) : null}

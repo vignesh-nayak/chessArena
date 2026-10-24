@@ -7,6 +7,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ApiRequestError, apiFetch, refreshViewerRating } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
+import "./LoginPage.css";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -23,8 +24,8 @@ export function LoginPage() {
 
   if (bootstrapping) {
     return (
-      <main className="flex min-h-full items-center justify-center px-6">
-        <p className="text-muted">Checking session…</p>
+      <main className="login-checking">
+        <p className="login-checking-text">Checking session…</p>
       </main>
     );
   }
@@ -83,16 +84,14 @@ export function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-full items-center justify-center px-6">
-      <div className="absolute top-3 right-4">
+    <main className="login-page">
+      <div className="login-theme">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-sm">
-        <p className="mb-2 text-sm tracking-wide text-muted uppercase">
-          ChessArena
-        </p>
-        <h1 className="mb-6 text-2xl font-medium text-text">Log in</h1>
-        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+      <div className="login-card">
+        <p className="login-kicker">ChessArena</p>
+        <h1 className="login-title">Log in</h1>
+        <form className="login-form" onSubmit={onSubmit} noValidate>
           <Field
             label="Email"
             type="email"
@@ -110,21 +109,17 @@ export function LoginPage() {
             onChange={setPassword}
           />
           {formError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="login-error" role="alert">
               {formError}
             </p>
           ) : null}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="login-submit">
             {submitting ? "Logging in…" : "Log in"}
           </button>
         </form>
-        <p className="mt-6 text-sm text-muted">
+        <p className="login-switch">
           No account?{" "}
-          <Link className="text-accent hover:underline" to="/signup">
+          <Link className="login-switch-link" to="/signup">
             Sign up
           </Link>
         </p>
@@ -149,16 +144,16 @@ function Field({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block text-left text-sm">
-      <span className="text-muted">{label}</span>
+    <label className="login-field">
+      <span className="login-field-label">{label}</span>
       <input
         type={type}
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full border border-muted/40 bg-transparent px-3 py-2 text-text outline-none focus:border-accent"
+        className="login-field-input"
       />
-      {error ? <span className="mt-1 block text-red-400">{error}</span> : null}
+      {error ? <span className="login-field-error">{error}</span> : null}
     </label>
   );
 }

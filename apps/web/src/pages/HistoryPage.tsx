@@ -12,6 +12,7 @@ import {
   historyResultLabel,
 } from "../lib/gameHistory";
 import { useAuthStore } from "../store/authStore";
+import "./HistoryPage.css";
 
 export function HistoryPage() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -46,35 +47,32 @@ export function HistoryPage() {
   }, []);
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="history-page">
       <TopBar />
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-10">
-        <h1 className="text-2xl font-medium text-text">History</h1>
-        <p className="mt-2 text-sm text-muted">Your games, newest first.</p>
+      <main className="history-main">
+        <h1 className="history-title">History</h1>
+        <p className="history-lead">Your games, newest first.</p>
 
         {loading ? (
-          <LoadingPulse lines={5} className="mt-10 space-y-3" />
+          <LoadingPulse lines={5} className="loading-pulse--offset" />
         ) : loadError ? (
-          <p className="mt-10 text-sm text-red-400" role="alert">
+          <p className="history-error" role="alert">
             {loadError}
           </p>
         ) : !history || history.items.length === 0 ? (
-          <div className="mt-10">
+          <div className="history-empty">
             <EmptyState>
               No games yet —{" "}
-              <Link className="text-accent hover:underline" to="/home">
+              <Link className="history-link" to="/home">
                 play vs AI
               </Link>
             </EmptyState>
           </div>
         ) : (
-          <ul className="mt-10 space-y-2 text-left text-sm">
+          <ul className="history-list">
             {history.items.map((game) => (
               <li key={game.id}>
-                <Link
-                  className="text-accent hover:underline"
-                  to={historyHref(game)}
-                >
+                <Link className="history-link" to={historyHref(game)}>
                   vs {historyOpponent(game, userId)} · {historyKind(game)} ·{" "}
                   {historyResultLabel(game, userId)} ·{" "}
                   {new Date(game.createdAt).toLocaleString()}

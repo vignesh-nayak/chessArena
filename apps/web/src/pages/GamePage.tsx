@@ -13,6 +13,7 @@ import { StockfishEngine } from "../lib/stockfishEngine";
 import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
 import { useRealtimeStore } from "../store/realtimeStore";
+import "./GamePage.css";
 
 function ratingLabel(rating: number | null): string {
   return rating == null ? "—" : String(rating);
@@ -327,11 +328,11 @@ export function GamePage() {
 
   if (loadStatus === "error") {
     return (
-      <div className="flex min-h-full flex-col">
+      <div className="game-page">
         <TopBar />
-        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-          <p className="text-text">{loadError ?? "Could not load game"}</p>
-          <Link className="text-accent hover:underline" to="/home">
+        <main className="game-error">
+          <p className="game-error-text">{loadError ?? "Could not load game"}</p>
+          <Link className="game-link" to="/home">
             Back to home
           </Link>
         </main>
@@ -370,12 +371,12 @@ export function GamePage() {
   const ownDrawOffer = Boolean(user?.id) && drawOfferedBy === user?.id;
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="game-page">
       <TopBar />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        <section className="flex w-full flex-col items-center lg:w-auto">
-          <div className="w-full max-w-[min(70vh,100%)]">
+      <div className="game-layout">
+        <section className="game-board-column">
+          <div className="game-player-slot">
             <PlayerBar
               username={opponentName}
               ratingLabel={ratingLabel(
@@ -398,7 +399,7 @@ export function GamePage() {
             turn={turn}
             onSelectSquare={watching ? undefined : selectSquare}
           />
-          <div className="w-full max-w-[min(70vh,100%)]">
+          <div className="game-player-slot">
             <PlayerBar
               username={selfName}
               ratingLabel={ratingLabel(
@@ -411,31 +412,31 @@ export function GamePage() {
           </div>
         </section>
 
-        <aside className="flex w-full flex-col gap-4 lg:w-64 lg:shrink-0 lg:self-stretch">
-          <p className="text-sm text-muted">{statusText}</p>
+        <aside className="game-side">
+          <p className="game-muted">{statusText}</p>
           {moving && !aiThinking ? (
-            <p className="text-sm text-muted">Saving move…</p>
+            <p className="game-muted">Saving move…</p>
           ) : null}
           {aiThinking ? (
-            <p className="text-sm text-muted" aria-live="polite">
+            <p className="game-muted" aria-live="polite">
               AI thinking…
             </p>
           ) : null}
           {aiError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="game-alert" role="alert">
               {aiError}
             </p>
           ) : null}
           {moveError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="game-alert" role="alert">
               {moveError}
             </p>
           ) : null}
 
           {pendingPromotion && !watching ? (
-            <div className="space-y-2">
-              <p className="text-sm text-text">Promote to</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="game-promote">
+              <p className="game-text">Promote to</p>
+              <div className="game-choices">
                 {(
                   [
                     ["q", "Queen"],
@@ -447,7 +448,7 @@ export function GamePage() {
                   <button
                     key={code}
                     type="button"
-                    className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
+                    className="game-btn-accent"
                     onClick={() => void completePromotion(code)}
                   >
                     {label}
@@ -455,7 +456,7 @@ export function GamePage() {
                 ))}
                 <button
                   type="button"
-                  className="px-3 py-1.5 text-sm text-muted hover:text-text"
+                  className="game-btn-quiet"
                   onClick={cancelPromotion}
                 >
                   Cancel
@@ -471,19 +472,19 @@ export function GamePage() {
           ) : null}
 
           {incomingDraw && !watching ? (
-            <div className="space-y-2 border border-muted/40 px-3 py-3">
-              <p className="text-sm text-text">{opponentName} offered a draw</p>
-              <div className="flex gap-2">
+            <div className="game-draw">
+              <p className="game-text">{opponentName} offered a draw</p>
+              <div className="game-inline-actions">
                 <button
                   type="button"
-                  className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
+                  className="game-btn-accent"
                   onClick={() => respondDraw(true)}
                 >
                   Accept
                 </button>
                 <button
                   type="button"
-                  className="border border-muted/40 px-3 py-1.5 text-sm text-muted"
+                  className="game-btn-ghost"
                   onClick={() => respondDraw(false)}
                 >
                   Decline
@@ -493,10 +494,10 @@ export function GamePage() {
           ) : null}
 
           {watching ? null : (
-          <div className="mt-auto flex flex-wrap gap-3 pt-2">
+          <div className="game-actions">
             <button
               type="button"
-              className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+              className="game-btn-ghost"
               disabled={
                 !realtimeReady || status !== "in_progress" || resigning
               }
@@ -507,7 +508,7 @@ export function GamePage() {
             {gameType === "pvp" ? (
               <button
                 type="button"
-                className="border border-muted/40 px-3 py-1.5 text-sm text-muted disabled:opacity-40"
+                className="game-btn-ghost"
                 disabled={
                   !realtimeReady ||
                   status !== "in_progress" ||
@@ -521,7 +522,7 @@ export function GamePage() {
             ) : (
               <button
                 type="button"
-                className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-60"
+                className="game-btn-accent"
                 disabled={creating}
                 onClick={() => void onNewGame()}
               >

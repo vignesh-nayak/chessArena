@@ -6,7 +6,7 @@ ChessArena is a real-time chess app. Sign in, play the computer or another perso
 
 MongoDB, Express, React, and Node, plus Socket.io for live games, chess.js for the rules, and Stockfish in the browser for the computer opponent.
 
-- **Web:** Vite, React, TypeScript, Tailwind CSS on Vercel
+- **Web:** Vite, React, TypeScript, plain CSS on Vercel
 - **API:** Express, TypeScript, Mongoose, Socket.io on Render
 - **DB:** MongoDB Atlas
 - **Shared:** Zod schemas and chess helpers in `packages/shared`
@@ -18,7 +18,7 @@ MongoDB, Express, React, and Node, plus Socket.io for live games, chess.js for t
 | Web | https://chess-arena-riou.vercel.app |
 | API | https://chessarena-server-uzin.onrender.com |
 
-The Render free tier sleeps. The first request after idle can take a while. Hit [`/api/health`](https://chessarena-server-uzin.onrender.com/api/health) once before a demo. A healthy body is `{ "ok": true, "mongo": "up" }`.
+In production the API pings its own [`/api/health`](https://chessarena-server-uzin.onrender.com/api/health) every 12 minutes, so the Render free web service stays awake while that process is running. A healthy body is `{ "ok": true, "mongo": "up" }`. If the process has already slept, crashed, or the workspace has used its free hours, the next request still waits on a cold start.
 
 ## Architecture
 
@@ -59,7 +59,7 @@ cp apps/web/.env.example apps/web/.env
 
 `apps/api/.env`:
 
-- `MONGODB_URI` — Atlas connection string
+- `MONGODB_URI` — Atlas connection string. The database is `test` unless `NODE_ENV=production`, which uses `prod`. A database name in the URI is ignored.
 - `CORS_ORIGIN` — `http://localhost:5173` locally. Never `*`
 - `PORT` — optional, `4000`
 - `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` — two different long random strings
@@ -84,7 +84,7 @@ npm test
 ### Deploy
 
 1. Atlas: free cluster, database user, and `0.0.0.0/0` if Render has no stable egress IP.
-2. Render: this repo, `render.yaml`, service name `chessarena-api`. Set `MONGODB_URI`, `CORS_ORIGIN` to the Vercel origin, and both JWT secrets. `NODE_ENV=production` turns on `Secure` and `SameSite=None` for the refresh cookie.
+2. Render: this repo, `render.yaml`, service name `chessarena-api`. Set `MONGODB_URI`, `CORS_ORIGIN` to the Vercel origin, and both JWT secrets. `NODE_ENV=production` turns on `Secure` and `SameSite=None` for the refresh cookie, and selects the `prod` database. No separate database env var is required. Existing data in `test` stays there for local dev.
 3. Vercel: repo root, `vercel.json`. Set `VITE_API_URL` to the Render origin with no trailing slash.
 
 Open the Vercel URL. The status line should say the API is OK, and `/api/health` should allow that origin specifically.
@@ -98,10 +98,10 @@ The server is the source of truth for moves, clocks, ratings, and puzzle solutio
 - Matchmaking, lobby presence, and the login rate limit live in the API process. A second instance would need a shared store.
 - Puzzle lines stay on the server. The daily puzzle is Lichess’s public daily puzzle, fetched once per UTC day with the `User-Agent` `ChessArena` and cached by date. Lichess puzzle data is CC0. The page links to the puzzle on Lichess. The 60 positions in `apps/api/src/data/puzzles.json` are the offline fallback.
 - The theme follows the operating system until the player toggles it. The board stays green and cream.
+- On a phone, the signed-in top bar is the brand and a menu button. The links open in a panel from the right. Wider screens keep those links in one row.
 
 ## Future improvements
 
-- Resposive Design(For Mobile)
 - A custom engine instead of only Stockfish
 - A Redis adapter so Socket.io can run on more than one process
 - Time controls other than 10+5

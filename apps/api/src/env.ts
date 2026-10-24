@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { mongoDatabaseName } from "./lib/mongoDatabase.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -37,6 +38,7 @@ if (corsOrigins.some((origin) => origin === "*")) {
 
 export const env = {
   mongodbUri: requireEnv("MONGODB_URI"),
+  mongodbDbName: mongoDatabaseName(process.env.NODE_ENV),
   corsOrigin: corsOrigins.join(","),
   corsOrigins,
   port: PORT,

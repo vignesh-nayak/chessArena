@@ -17,6 +17,7 @@ import {
   historyResultLabel,
 } from "../lib/gameHistory";
 import { useAuthStore } from "../store/authStore";
+import "./HomePage.css";
 
 const DIFFICULTIES: { value: AiDifficulty; label: string }[] = [
   { value: 1, label: "Easy" },
@@ -89,56 +90,40 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="home-page">
       <TopBar />
 
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-10">
-        <div className="text-center">
-          <h1 className="text-2xl font-medium text-text">
-            Signed in as {user?.username}
-          </h1>
-          <p className="mt-2 text-sm text-muted">{user?.email}</p>
+      <main className="home-main">
+        <div className="home-intro">
+          <h1 className="home-title">Signed in as {user?.username}</h1>
+          <p className="home-email">{user?.email}</p>
         </div>
 
-        <section className="mt-10 space-y-4">
-          <p className="text-sm tracking-wide text-muted uppercase">
-            Play online
-          </p>
+        <section className="home-section">
+          <p className="home-kicker">Play online</p>
           <FindMatchButton />
-          <Link
-            className="inline-block text-sm text-accent hover:underline"
-            to="/lobby"
-          >
+          <Link className="home-link" to="/lobby">
             Open lobby
           </Link>
         </section>
 
-        <section className="mt-10 space-y-4">
-          <p className="text-sm tracking-wide text-muted uppercase">
-            Daily puzzle
-          </p>
-          <Link
-            className="inline-block text-sm text-accent hover:underline"
-            to="/puzzles"
-          >
+        <section className="home-section">
+          <p className="home-kicker">Daily puzzle</p>
+          <Link className="home-link" to="/puzzles">
             Solve today's puzzle
           </Link>
         </section>
 
-        <section className="mt-10 space-y-4">
-          <p className="text-sm tracking-wide text-muted uppercase">
-            Play vs AI
-          </p>
-          <div className="flex flex-wrap gap-2">
+        <section className="home-section">
+          <p className="home-kicker">Play vs AI</p>
+          <div className="home-difficulties">
             {DIFFICULTIES.map((d) => (
               <button
                 key={d.value}
                 type="button"
                 onClick={() => setDifficulty(d.value)}
                 className={
-                  difficulty === d.value
-                    ? "bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
-                    : "border border-muted/40 px-3 py-1.5 text-sm text-muted"
+                  difficulty === d.value ? "home-difficulty--active" : "home-difficulty"
                 }
               >
                 {d.label}
@@ -147,43 +132,36 @@ export function HomePage() {
           </div>
           <button
             type="button"
-            className="w-full bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-60"
+            className="home-play"
             disabled={starting}
             onClick={() => void onPlay()}
           >
             {starting ? "Starting…" : "Play vs AI"}
           </button>
           {startError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="home-error" role="alert">
               {startError}
             </p>
           ) : null}
         </section>
 
-        <section className="mt-10 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm tracking-wide text-muted uppercase">
-              Recent games
-            </p>
-            <Link className="text-sm text-muted hover:text-accent" to="/history">
+        <section className="home-section home-section--tight">
+          <div className="home-section-head">
+            <p className="home-kicker">Recent games</p>
+            <Link className="home-quiet-link" to="/history">
               History
             </Link>
           </div>
-          {historyError ? (
-            <p className="text-sm text-muted">{historyError}</p>
-          ) : null}
+          {historyError ? <p className="home-note">{historyError}</p> : null}
           {!history && !historyError ? (
             <LoadingPulse lines={4} />
           ) : history && history.items.length === 0 ? (
             <EmptyState>No games yet — play vs AI</EmptyState>
           ) : history ? (
-            <ul className="space-y-2 text-left text-sm">
+            <ul className="home-list">
               {history.items.slice(0, 10).map((g) => (
                 <li key={g.id}>
-                  <Link
-                    className="text-accent hover:underline"
-                    to={historyHref(g)}
-                  >
+                  <Link className="home-link" to={historyHref(g)}>
                     vs {historyOpponent(g, user?.id)} · {historyKind(g)} ·{" "}
                     {historyResultLabel(g, user?.id)} ·{" "}
                     {new Date(g.createdAt).toLocaleString()}
@@ -194,18 +172,15 @@ export function HomePage() {
           ) : null}
         </section>
 
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="home-footer">
           <button
             type="button"
             onClick={() => void onLogout()}
             disabled={loggingOut}
-            className="border border-muted/40 px-4 py-2 text-sm text-muted disabled:opacity-60"
+            className="home-logout"
           >
             {loggingOut ? "Logging out…" : "Log out"}
           </button>
-          {/* <Link className="text-sm text-muted hover:underline" to="/">
-            API status
-          </Link> */}
         </div>
       </main>
     </div>

@@ -17,6 +17,7 @@ import { EmptyState } from "../components/EmptyState";
 import { BoardLoading } from "../components/LoadingState";
 import { TopBar } from "../components/TopBar";
 import { apiFetch, ApiRequestError } from "../lib/api";
+import "./PuzzlePage.css";
 
 const PROMOTION_CHOICES = [
   ["q", "Queen"],
@@ -132,10 +133,13 @@ export function PuzzlePage() {
     clearSelection();
     setPendingPromotion(null);
     try {
-      const response = await apiFetch<PuzzleAttemptResponse>(`/api/puzzles/${puzzle.id}/attempt`, {
-        method: "POST",
-        body: { moves: nextMoves },
-      });
+      const response = await apiFetch<PuzzleAttemptResponse>(
+        `/api/puzzles/${puzzle.id}/attempt`,
+        {
+          method: "POST",
+          body: { moves: nextMoves },
+        },
+      );
 
       if (response.status === "incorrect") {
         setBanner("Not the move. Try again.");
@@ -147,11 +151,7 @@ export function PuzzlePage() {
       const line = reply ? [...nextMoves, reply.san] : nextMoves;
       setMoves(line);
       if (response.fen) setFen(response.fen);
-      setLastMove(
-        reply
-          ? { from: reply.from, to: reply.to }
-          : highlight,
-      );
+      setLastMove(reply ? { from: reply.from, to: reply.to } : highlight);
       setPuzzleRating(response.puzzleRating);
       setPuzzlesSolved(response.puzzlesSolved);
 
@@ -163,7 +163,9 @@ export function PuzzlePage() {
             : `Solved. Puzzle rating ${response.puzzleRating}.`,
         );
         setBannerTone(response.alreadySolved ? "muted" : "ok");
-        const past = await apiFetch<PuzzleHistoryResponse>("/api/puzzles/history");
+        const past = await apiFetch<PuzzleHistoryResponse>(
+          "/api/puzzles/history",
+        );
         setHistory(past);
       }
     } catch (err) {
@@ -178,7 +180,12 @@ export function PuzzlePage() {
 
   function play(from: string, to: string, promotion?: string) {
     if (!puzzle || !fen || locked || submitting) return;
-    if (!promotion && getLegalMoves({ fen }, from).some((target) => target.to === to && target.promotion)) {
+    if (
+      !promotion &&
+      getLegalMoves({ fen }, from).some(
+        (target) => target.to === to && target.promotion,
+      )
+    ) {
       setPendingPromotion({ from, to });
       clearSelection();
       return;
@@ -186,7 +193,10 @@ export function PuzzlePage() {
 
     const result = tryMove({ fen }, toUci(from, to, promotion));
     if (!result.ok) return;
-    void submitLine([...moves, result.san], { from: result.from, to: result.to });
+    void submitLine([...moves, result.san], {
+      from: result.from,
+      to: result.to,
+    });
   }
 
   function onMove(from: string, to: string) {
@@ -224,10 +234,12 @@ export function PuzzlePage() {
 
   if (loadError || !puzzle || !flags) {
     return (
-      <div className="flex min-h-full flex-col">
+      <div className="puzzle-page">
         <TopBar />
-        <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
-          <p className="text-text">{loadError ?? "Could not load the daily puzzle"}</p>
+        <main className="puzzle-error">
+          <p className="puzzle-error-text">
+            {loadError ?? "Could not load the daily puzzle"}
+          </p>
         </main>
       </div>
     );
@@ -242,11 +254,11 @@ export function PuzzlePage() {
     flags.turn === puzzle.sideToMove;
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="puzzle-page">
       <TopBar />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        <section className="flex w-full flex-col items-center lg:w-auto">
-          <div className="w-full max-w-[min(70vh,100%)]">
+      <div className="puzzle-layout">
+        <section className="puzzle-board-column">
+          <div className="puzzle-player-slot">
             <PlayerBar
               username="Puzzle"
               ratingLabel={String(puzzle.rating)}
@@ -265,7 +277,7 @@ export function PuzzlePage() {
             turn={flags.turn}
             onSelectSquare={onSelectSquare}
           />
-          <div className="w-full max-w-[min(70vh,100%)]">
+          <div className="puzzle-player-slot">
             <PlayerBar
               username="You"
               ratingLabel={String(puzzleRating)}
@@ -274,47 +286,40 @@ export function PuzzlePage() {
           </div>
         </section>
 
-        <aside className="flex w-full flex-col gap-4 lg:w-64 lg:shrink-0 lg:self-stretch">
-          <p className="text-sm text-accent">{puzzle.theme}</p>
+        <aside className="puzzle-side">
+          <p className="puzzle-theme">{puzzle.theme}</p>
           {puzzle.sourceUrl ? (
             <a
               href={puzzle.sourceUrl}
-              className="text-sm text-muted hover:text-accent"
+              className="puzzle-source"
               target="_blank"
               rel="noreferrer"
             >
               Daily puzzle from Lichess
             </a>
           ) : null}
-          <p className="text-sm text-muted">
+          <p className="puzzle-muted">
             Puzzle {puzzle.rating} · your rating {puzzleRating}
           </p>
-          <p className="text-sm text-muted">{puzzlesSolved} solved</p>
           {banner ? (
             <p
-              className={
-                bannerTone === "bad"
-                  ? "text-sm text-red-400"
-                  : bannerTone === "ok"
-                    ? "text-sm text-accent"
-                    : "text-sm text-muted"
-              }
+              className={`puzzle-banner puzzle-banner--${bannerTone}`}
               role="status"
             >
               {banner}
             </p>
           ) : null}
-          {submitting ? <p className="text-sm text-muted">Checking…</p> : null}
+          {submitting ? <p className="puzzle-muted">Checking…</p> : null}
 
           {pendingPromotion ? (
-            <div className="space-y-2">
-              <p className="text-sm text-text">Promote to</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="puzzle-promote">
+              <p className="puzzle-text">Promote to</p>
+              <div className="puzzle-choices">
                 {PROMOTION_CHOICES.map(([code, label]) => (
                   <button
                     key={code}
                     type="button"
-                    className="bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
+                    className="puzzle-btn-accent"
                     onClick={() => {
                       const pending = pendingPromotion;
                       setPendingPromotion(null);
@@ -326,7 +331,7 @@ export function PuzzlePage() {
                 ))}
                 <button
                   type="button"
-                  className="px-3 py-1.5 text-sm text-muted hover:text-text"
+                  className="puzzle-btn-quiet"
                   onClick={() => setPendingPromotion(null)}
                 >
                   Cancel
@@ -336,18 +341,24 @@ export function PuzzlePage() {
           ) : null}
 
           {moves.length > 0 ? (
-            <p className="text-sm text-text">
+            <p className="puzzle-line">
               {formatLine(moves, puzzle.sideToMove)}
             </p>
           ) : null}
 
-          <div className="space-y-2">
-            <p className="text-sm tracking-wide text-muted uppercase">Solved</p>
+          <div className="puzzle-history">
+            <div className="puzzle-history-heading">
+              <p className="puzzle-kicker">Puzzle Solved History</p>
+              <p className="puzzle-muted">({puzzlesSolved} solved)</p>
+            </div>
             {!history || history.items.length === 0 ? (
               <EmptyState>None yet</EmptyState>
             ) : (
               history.items.slice(0, 8).map((item) => (
-                <p key={`${item.puzzleId}-${item.solvedAt}`} className="text-sm text-muted">
+                <p
+                  key={`${item.puzzleId}-${item.solvedAt}`}
+                  className="puzzle-history-item"
+                >
                   {item.theme} · {item.rating} · rating {item.puzzleRating}
                 </p>
               ))

@@ -1,0 +1,5 @@
+.chess-board {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: min(70vh, 100%);
+}

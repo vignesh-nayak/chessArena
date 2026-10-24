@@ -1,0 +1,93 @@
+.loading-pulse {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.loading-pulse--offset {
+  margin-top: 2.5rem;
+}
+
+.loading-pulse-line,
+.board-loading-line,
+.board-loading-square {
+  animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.loading-pulse-line,
+.board-loading-line {
+  height: 1rem;
+  background: color-mix(in srgb, var(--color-muted) 30%, transparent);
+}
+
+.board-loading-line--two-thirds {
+  width: 66.666667%;
+}
+
+.board-loading-line--half {
+  width: 50%;
+}
+
+.board-loading-line--three-quarters {
+  width: 75%;
+}
+
+.list-loading,
+.board-loading {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.list-loading-main {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 32rem;
+  flex: 1;
+  padding: 2.5rem 1.5rem;
+}
+
+.board-loading-layout {
+  margin-inline: auto;
+  display: flex;
+  width: 100%;
+  max-width: 72rem;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 0 1rem 2rem;
+}
+
+.board-loading-square {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: min(70vh, 100%);
+  background: color-mix(in srgb, var(--color-muted) 20%, transparent);
+}
+
+.board-loading-side {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@keyframes loading-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (min-width: 1024px) {
+  .board-loading-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2rem;
+  }
+
+  .board-loading-side {
+    width: 16rem;
+    flex-shrink: 0;
+  }
+}

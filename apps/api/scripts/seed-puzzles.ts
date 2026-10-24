@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { mongoDatabaseName } from "../src/lib/mongoDatabase.js";
 import { Puzzle } from "../src/models/Puzzle.js";
 import { validatePuzzleSeed, type PuzzleSeed } from "../src/lib/puzzles.js";
 
@@ -37,7 +38,9 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+const dbName = mongoDatabaseName(process.env.NODE_ENV);
+await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000, dbName });
+console.log(`[seed] MongoDB database ${mongoose.connection.name}`);
 
 let upserts = 0;
 for (const puzzle of puzzles) {

@@ -1,0 +1,75 @@
+.status-page {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1.5rem;
+}
+
+.status-card {
+  max-width: 32rem;
+  text-align: center;
+}
+
+.status-kicker {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.status-actions {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.status-heading {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 500;
+}
+
+.status-heading--muted {
+  color: var(--color-muted);
+}
+
+.status-heading--ok {
+  color: var(--color-accent);
+}
+
+.status-heading--text {
+  color: var(--color-text);
+}
+
+.status-detail {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-muted);
+}
+
+.status-link,
+.status-link--muted {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.status-link {
+  color: var(--color-accent);
+}
+
+.status-link--muted {
+  color: var(--color-muted);
+}
+
+.status-link:hover,
+.status-link--muted:hover {
+  text-decoration: underline;
+}

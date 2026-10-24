@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getApiBase } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
+import "./StatusPage.css";
 
 type Status =
   | { kind: "loading" }
@@ -49,23 +50,21 @@ export function StatusPage() {
   }, []);
 
   return (
-    <main className="flex min-h-full items-center justify-center px-6">
-      <div className="max-w-lg text-center">
-        <p className="mb-2 text-sm tracking-wide text-muted uppercase">
-          ChessArena
-        </p>
+    <main className="status-page">
+      <div className="status-card">
+        <p className="status-kicker">ChessArena</p>
         <StatusLine status={status} />
-        <div className="mt-8 flex items-center justify-center gap-4 text-sm">
+        <div className="status-actions">
           {user ? (
-            <Link className="text-accent hover:underline" to="/home">
+            <Link className="status-link" to="/home">
               Continue as {user.username}
             </Link>
           ) : (
             <>
-              <Link className="text-accent hover:underline" to="/login">
+              <Link className="status-link" to="/login">
                 Log in
               </Link>
-              <Link className="text-muted hover:underline" to="/signup">
+              <Link className="status-link--muted" to="/signup">
                 Sign up
               </Link>
             </>
@@ -80,29 +79,29 @@ function StatusLine({ status }: { status: Status }) {
   switch (status.kind) {
     case "loading":
       return (
-        <h1 className="text-2xl font-medium text-muted">
+        <h1 className="status-heading status-heading--muted">
           ChessArena API status: checking…
         </h1>
       );
     case "ok":
       return (
-        <h1 className="text-2xl font-medium text-accent">
+        <h1 className="status-heading status-heading--ok">
           ChessArena API status: OK
         </h1>
       );
     case "mongo-down":
       return (
-        <h1 className="text-2xl font-medium text-text">
+        <h1 className="status-heading status-heading--text">
           ChessArena API status: API up, MongoDB down
         </h1>
       );
     case "error":
       return (
         <div>
-          <h1 className="text-2xl font-medium text-text">
+          <h1 className="status-heading status-heading--text">
             ChessArena API status: unreachable
           </h1>
-          <p className="mt-3 text-sm text-muted">{status.message}</p>
+          <p className="status-detail">{status.message}</p>
         </div>
       );
   }

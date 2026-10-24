@@ -12,6 +12,7 @@ import {
   historyResultLabel,
 } from "../lib/gameHistory";
 import { useAuthStore } from "../store/authStore";
+import "./ProfilePage.css";
 
 export function ProfilePage() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -54,83 +55,65 @@ export function ProfilePage() {
   }, []);
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="profile-page">
       <TopBar />
 
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-10">
+      <main className="profile-main">
         {loading ? (
-          <LoadingPulse lines={5} className="space-y-3" />
+          <LoadingPulse lines={5} />
         ) : loadError ? (
-          <p className="text-center text-sm text-red-400" role="alert">
+          <p className="profile-error" role="alert">
             {loadError}
           </p>
         ) : me ? (
           <>
-            <div className="text-center">
-              <p className="mb-2 text-sm tracking-wide text-muted uppercase">
-                Profile
-              </p>
-              <h1 className="text-2xl font-medium text-text">{me.username}</h1>
-              <p className="mt-2 text-sm text-muted">Rating {me.rating}</p>
-              <p className="mt-1 text-sm text-muted">
+            <div className="profile-intro">
+              <p className="profile-kicker">Profile</p>
+              <h1 className="profile-title">{me.username}</h1>
+              <p className="profile-meta">Rating {me.rating}</p>
+              <p className="profile-meta">
                 Puzzle rating {me.puzzleRating} · {me.puzzlesSolved} solved
               </p>
-              <p className="mt-1 text-sm text-muted">{me.email}</p>
+              <p className="profile-meta">{me.email}</p>
             </div>
 
-            <section className="mt-10">
-              <p className="mb-4 text-center text-sm tracking-wide text-muted uppercase">
-                Stats
-              </p>
-              <div className="flex justify-center gap-10 text-center">
+            <section className="profile-stats-section">
+              <p className="profile-stats-heading">Stats</p>
+              <div className="profile-stats">
                 <div>
-                  <p className="text-2xl font-medium text-text">
-                    {me.stats.wins}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">Wins</p>
+                  <p className="profile-stat-value">{me.stats.wins}</p>
+                  <p className="profile-stat-label">Wins</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-medium text-text">
-                    {me.stats.losses}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">Losses</p>
+                  <p className="profile-stat-value">{me.stats.losses}</p>
+                  <p className="profile-stat-label">Losses</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-medium text-text">
-                    {me.stats.draws}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">Draws</p>
+                  <p className="profile-stat-value">{me.stats.draws}</p>
+                  <p className="profile-stat-label">Draws</p>
                 </div>
               </div>
             </section>
 
-            <section className="mt-10 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm tracking-wide text-muted uppercase">
-                  Recent games
-                </p>
-                <Link
-                  className="text-sm text-muted hover:text-accent"
-                  to="/history"
-                >
+            <section className="profile-recent">
+              <div className="profile-section-head">
+                <p className="profile-kicker">Recent games</p>
+                <Link className="profile-quiet-link" to="/history">
                   History
                 </Link>
               </div>
               {history && history.items.length === 0 ? (
                 <EmptyState>
                   No games yet —{" "}
-                  <Link className="text-accent hover:underline" to="/home">
+                  <Link className="profile-link" to="/home">
                     play vs AI
                   </Link>
                 </EmptyState>
               ) : history ? (
-                <ul className="space-y-2 text-left text-sm">
+                <ul className="profile-list">
                   {history.items.slice(0, 10).map((g) => (
                     <li key={g.id}>
-                      <Link
-                        className="text-accent hover:underline"
-                        to={historyHref(g)}
-                      >
+                      <Link className="profile-link" to={historyHref(g)}>
                         vs {historyOpponent(g, userId)} · {historyKind(g)} ·{" "}
                         {historyResultLabel(g, userId)} ·{" "}
                         {new Date(g.createdAt).toLocaleString()}
@@ -141,11 +124,8 @@ export function ProfilePage() {
               ) : null}
             </section>
 
-            <div className="mt-10 text-center">
-              <Link
-                className="text-sm text-muted hover:text-accent"
-                to="/home"
-              >
+            <div className="profile-back">
+              <Link className="profile-quiet-link" to="/home">
                 Back to home
               </Link>
             </div>
