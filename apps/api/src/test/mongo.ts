@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { authRateLimit } from "../middleware/authRateLimit.js";
+import { resetUserRateLimit } from "../middleware/userRateLimit.js";
 
 export async function startMemoryMongo(): Promise<MongoMemoryServer> {
   const server = await MongoMemoryServer.create();
@@ -13,8 +13,7 @@ export async function stopMemoryMongo(server: MongoMemoryServer): Promise<void> 
   await server.stop();
 }
 
-/** Clears the shared login/signup budget so one file cannot starve the next. */
+/** Clears the per-user rate limit so one test cannot block the next. */
 export function resetAuthRateLimit(): void {
-  authRateLimit.resetKey("127.0.0.1");
-  authRateLimit.resetKey("::ffff:127.0.0.1");
+  resetUserRateLimit();
 }

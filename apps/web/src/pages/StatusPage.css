@@ -48,6 +48,10 @@
   color: var(--color-text);
 }
 
+.status-card .test-account-note {
+  margin-bottom: 0;
+}
+
 .status-detail {
   margin-top: 0.75rem;
   font-size: 0.875rem;

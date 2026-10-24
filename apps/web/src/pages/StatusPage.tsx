@@ -1,6 +1,7 @@
-import { HealthResponseSchema } from "@chessarena/shared";
+import { ApiErrorSchema, HealthResponseSchema } from "@chessarena/shared";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { TestAccountNote } from "../components/TestAccountNote";
 import { getApiBase } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import "./StatusPage.css";
@@ -9,6 +10,7 @@ type Status =
   | { kind: "loading" }
   | { kind: "ok" }
   | { kind: "mongo-down" }
+  | { kind: "limited"; message: string }
   | { kind: "error"; message: string };
 
 export function StatusPage() {
@@ -23,6 +25,18 @@ export function StatusPage() {
         const res = await fetch(`${getApiBase()}/api/health`, {
           credentials: "include",
         });
+        if (res.status === 429) {
+          const json: unknown = await res.json().catch(() => null);
+          const parsed = ApiErrorSchema.safeParse(json);
+          if (cancelled) return;
+          setStatus({
+            kind: "limited",
+            message: parsed.success
+              ? parsed.data.error.message
+              : "too many request from this user, blocked for 1hour",
+          });
+          return;
+        }
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -54,6 +68,7 @@ export function StatusPage() {
       <div className="status-card">
         <p className="status-kicker">ChessArena</p>
         <StatusLine status={status} />
+        <TestAccountNote />
         <div className="status-actions">
           {user ? (
             <Link className="status-link" to="/home">
@@ -94,6 +109,10 @@ function StatusLine({ status }: { status: Status }) {
         <h1 className="status-heading status-heading--text">
           ChessArena API status: API up, MongoDB down
         </h1>
+      );
+    case "limited":
+      return (
+        <h1 className="status-heading status-heading--text">{status.message}</h1>
       );
     case "error":
       return (

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { createApp } from "./app.js";
 import { env } from "./env.js";
 import { createGame } from "./lib/chessRules.js";
+import { ensureTestAccount } from "./lib/ensureTestAccount.js";
 import { startKeepAlive } from "./lib/keepAlive.js";
 import "./models/Game.js";
 import "./models/Puzzle.js";
@@ -27,6 +28,7 @@ async function connectMongo(uri: string): Promise<void> {
       console.error(`[api] MongoDB index sync failed: ${indexMessage}`);
     }
     await armPersistedClocks();
+    await ensureTestAccount();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(

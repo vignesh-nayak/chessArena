@@ -5,6 +5,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import mongoose from "mongoose";
 import { env } from "./env.js";
+import { userRateLimit } from "./middleware/userRateLimit.js";
 import { authRouter } from "./routes/auth.js";
 import { gamesRouter } from "./routes/games.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
@@ -28,6 +29,7 @@ export function createApp(): Express {
   );
   app.use(express.json());
   app.use(cookieParser());
+  app.use(userRateLimit);
 
   app.get("/api/health", (_req, res) => {
     const body: HealthResponse = {

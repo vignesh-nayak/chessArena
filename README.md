@@ -95,7 +95,7 @@ The server is the source of truth for moves, clocks, ratings, and puzzle solutio
 
 - Access tokens last 15 minutes and stay in memory. The refresh token is an httpOnly cookie for 7 days.
 - Stockfish is a browser worker. The API checks the move it proposes.
-- Matchmaking, lobby presence, and the login rate limit live in the API process. A second instance would need a shared store.
+- Matchmaking, lobby presence, and the per-user rate limit live in the API process. A second instance would need a shared store.
 - Puzzle lines stay on the server. The daily puzzle is Lichess’s public daily puzzle, fetched once per UTC day with the `User-Agent` `ChessArena` and cached by date. Lichess puzzle data is CC0. The page links to the puzzle on Lichess. The 60 positions in `apps/api/src/data/puzzles.json` are the offline fallback.
 - The theme follows the operating system until the player toggles it. The board stays green and cream.
 - On a phone, the signed-in top bar is the brand and a menu button. The links open in a panel from the right. Wider screens keep those links in one row.
@@ -109,7 +109,7 @@ The server is the source of truth for moves, clocks, ratings, and puzzle solutio
 
 ## Security
 
-Passwords are bcrypt at cost 12. JWT secrets come from the environment. Login and signup allow 5 attempts per 15 minutes per IP. CORS is an allowlist. Sockets require a valid access token. Two-factor auth and refresh-token reuse detection are not built.
+Passwords are bcrypt at cost 12. JWT secrets come from the environment. Each user may make 20 API requests per minute, and testchess@gmail.com may make 50. Game and puzzle routes are exempt. Going over the limit blocks that user and IP for one hour. CORS is an allowlist. Sockets require a valid access token. Two-factor auth and refresh-token reuse detection are not built.
 
 ## Testing
 

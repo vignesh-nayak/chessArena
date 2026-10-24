@@ -1,0 +1,6 @@
+.test-account-note {
+  margin: 0.75rem 0 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-muted);
+}

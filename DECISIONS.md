@@ -46,11 +46,11 @@ Accumulated as ChessArena is built. Newest entries at the top within each week.
 
 **The suite covers critical paths only.** Chess rules (legal move, illegal move, checkmate), ELO (win, draw, loss, and K after 30 games), JWT (round-trip, garbage, a refresh token used as access, and an already-expired access token), signup through `GET /api/users/me`, one AI move (`e2e4` stored as `e4`), and matchmaking as a pure queue pairing. Sockets and the browser are not in this suite. There is no Stockfish process and no coverage target.
 
-**Integration tests use an in-memory MongoDB.** Each API file starts and stops its own `mongodb-memory-server`. Nothing here talks to Atlas. The shared login limiter is cleared for localhost before each HTTP test so the 429 case cannot starve signup.
+**Integration tests use an in-memory MongoDB.** Each API file starts and stops its own `mongodb-memory-server`. Nothing here talks to Atlas. The per-user rate limit store is cleared before each HTTP test so a 429 cannot starve the next test.
 
 ### W4-F02 — Security hardening
 
-**Login and signup share one in-memory limit of 5 requests per 15 minutes per IP.** The sixth attempt returns `429` with `RATE_LIMITED` and “Too many attempts — try again later.” The counter lives on the API process and resets on restart. One Render instance is the assumption; a second instance would need a shared store.
+**Each user has an in-memory budget of 20 HTTP requests per minute. `testchess@gmail.com` has 50.** Game and puzzle routes are not counted. The request that goes over that minute returns `429` with `RATE_LIMITED` and “too many request from this user, blocked for 1hour”, and that user and that IP stay blocked for one hour. The counter lives on the API process and resets on restart. One Render instance is the assumption; a second instance would need a shared store.
 
 **Production trusts exactly one proxy hop.** `trust proxy` is `1` only when `NODE_ENV=production`, so Render’s `X-Forwarded-For` is the client IP. Locally the socket address is used, which keeps a client from spoofing the limit by sending that header.
 

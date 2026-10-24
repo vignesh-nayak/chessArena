@@ -4,6 +4,7 @@ import {
 } from "@chessarena/shared";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { TestAccountNote } from "../components/TestAccountNote";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ApiRequestError, apiFetch, refreshViewerRating } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
@@ -84,6 +85,7 @@ export function SignupPage() {
       <div className="signup-card">
         <p className="signup-kicker">ChessArena</p>
         <h1 className="signup-title">Sign up</h1>
+        <TestAccountNote />
         <form className="signup-form" onSubmit={onSubmit} noValidate>
           <Field
             label="Username"

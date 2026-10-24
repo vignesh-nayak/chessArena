@@ -4,6 +4,7 @@ import {
 } from "@chessarena/shared";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { TestAccountNote } from "../components/TestAccountNote";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ApiRequestError, apiFetch, refreshViewerRating } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
@@ -91,6 +92,7 @@ export function LoginPage() {
       <div className="login-card">
         <p className="login-kicker">ChessArena</p>
         <h1 className="login-title">Log in</h1>
+        <TestAccountNote />
         <form className="login-form" onSubmit={onSubmit} noValidate>
           <Field
             label="Email"

@@ -6,7 +6,6 @@ import {
 import bcrypt from "bcryptjs";
 import { Router, type Request, type Response } from "express";
 import { asyncHandler, sendError } from "../lib/errors.js";
-import { authRateLimit } from "../middleware/authRateLimit.js";
 import {
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
@@ -21,7 +20,7 @@ const BCRYPT_ROUNDS = 12;
 
 export const authRouter = Router();
 
-authRouter.post("/signup", authRateLimit, asyncHandler(async (req: Request, res: Response) => {
+authRouter.post("/signup", asyncHandler(async (req: Request, res: Response) => {
   const parsed = SignupBodySchema.safeParse(req.body);
   if (!parsed.success) {
     sendError(
@@ -78,7 +77,7 @@ authRouter.post("/signup", authRateLimit, asyncHandler(async (req: Request, res:
   }
 }));
 
-authRouter.post("/login", authRateLimit, asyncHandler(async (req: Request, res: Response) => {
+authRouter.post("/login", asyncHandler(async (req: Request, res: Response) => {
   const parsed = LoginBodySchema.safeParse(req.body);
   if (!parsed.success) {
     sendError(
