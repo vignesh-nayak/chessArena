@@ -1,6 +1,32 @@
 .test-account-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
   margin: 0.75rem 0 1.5rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
   color: var(--color-muted);
+}
+
+.test-account-note-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.test-account-note-copy:hover {
+  color: var(--color-accent);
+}
+
+.test-account-note-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  display: block;
+}
+
+.bold-text {
+  font-weight: 600;
 }

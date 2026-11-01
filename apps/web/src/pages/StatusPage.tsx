@@ -93,35 +93,11 @@ export function StatusPage() {
 function StatusLine({ status }: { status: Status }) {
   switch (status.kind) {
     case "loading":
-      return (
-        <h1 className="status-heading status-heading--muted">
-          ChessArena API status: checking…
-        </h1>
-      );
     case "ok":
-      return (
-        <h1 className="status-heading status-heading--ok">
-          ChessArena API status: OK
-        </h1>
-      );
     case "mongo-down":
-      return (
-        <h1 className="status-heading status-heading--text">
-          ChessArena API status: API up, MongoDB down
-        </h1>
-      );
-    case "limited":
-      return (
-        <h1 className="status-heading status-heading--text">{status.message}</h1>
-      );
     case "error":
-      return (
-        <div>
-          <h1 className="status-heading status-heading--text">
-            ChessArena API status: unreachable
-          </h1>
-          <p className="status-detail">{status.message}</p>
-        </div>
-      );
+      return null;
+    case "limited":
+      return <h1 className="status-heading">{status.message}</h1>;
   }
 }

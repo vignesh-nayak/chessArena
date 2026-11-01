@@ -34,29 +34,11 @@
   font-size: 1.5rem;
   line-height: 2rem;
   font-weight: 500;
-}
-
-.status-heading--muted {
-  color: var(--color-muted);
-}
-
-.status-heading--ok {
-  color: var(--color-accent);
-}
-
-.status-heading--text {
   color: var(--color-text);
 }
 
 .status-card .test-account-note {
   margin-bottom: 0;
-}
-
-.status-detail {
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: var(--color-muted);
 }
 
 .status-link,
